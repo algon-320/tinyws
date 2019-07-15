@@ -3,3 +3,6 @@ test.out: test.c deque.o
 
 deque.o: ../deque.c
 	gcc -c ../deque.c -o deque.o
+
+clean:
+	rm *.out *.o
