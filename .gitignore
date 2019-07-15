@@ -1,3 +1,2 @@
 *.o
-server
-client_example
+*.out

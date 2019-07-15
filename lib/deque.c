@@ -12,7 +12,7 @@ Deque deque_new(size_t num, size_t elem_size_byte) {
 
 Deque deque_new_filled_with(size_t num, size_t elem_size_byte, void *elem) {
     Deque ret = deque_new(num, elem_size_byte);
-    for (int i = 0; i < num; ++i) {
+    for (size_t i = 0; i < num; ++i) {
         memcpy(deque_at(&ret, i), elem, elem_size_byte);
     }
     return ret;

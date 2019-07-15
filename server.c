@@ -13,102 +13,11 @@
 
 #include <pthread.h>
 
-#define PORTNO_BUFSIZE (30)
-int tcp_acc_port(int portno, int ip_version) {
-    struct addrinfo hints, *ai;
-    char portno_str[PORTNO_BUFSIZE];
-    int err, s, on, pf;
+#include "tcp.h"
+#include "display.h"
+#include "draw.h"
+#include "query.h"
 
-    switch (ip_version) {
-    case 4:
-        pf = PF_INET;
-        break;
-    case 6:
-        pf = PF_INET6;
-        break;
-    case 46:
-    case 64:
-        pf = 0;
-        break;
-    default:
-        fprintf(stderr, "bad IP version: %d. 4 or 6 is allowed.\n", ip_version);
-        goto error0;
-    }
-
-    snprintf(portno_str, sizeof(portno_str), "%d", portno);
-    memset(&hints, 0, sizeof(hints));
-    ai = NULL;
-    hints.ai_family = pf;
-    hints.ai_flags  = AI_PASSIVE;
-    hints.ai_socktype = SOCK_STREAM;
-
-    if ((err = getaddrinfo(NULL, portno_str, &hints, &ai))) {
-        fprintf(stderr, "bad portno %d? (%s)\n", portno, gai_strerror(err));
-        goto error0;
-    }
-    if ((s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol)) < 0) {
-        perror("socket");
-		goto error1;
-    }
-#ifdef IPV6_ONLY
-    if (ai->ai_family == PF_INET6 && ip_version == 6) {
-        on = 1;
-        if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) < 0) {
-            perror("setsockopt(,,IPV6_V6ONLY)");
-            goto error1;
-        }
-    }
-#endif
-    if (bind(s, ai->ai_addr, ai->ai_addrlen) < 0) {
-        perror("bind");
-        fprintf(stderr, "Port nummber %d\n", portno);
-        goto error2;
-    }
-    on = 1;
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
-        perror("setsockopt(,,SO_REUSEADDR)");
-        goto error2;
-    }
-    if (listen(s, 5) < 0) {
-        perror("listen");
-        goto error2;
-    }
-    freeaddrinfo(ai);
-    return s;
-
-error2:
-    close(s);
-error1:
-    freeaddrinfo(ai);
-error0:
-    return -1;
-}
-
-int fdopen_sock(int sock, FILE **inp, FILE **outp) {
-    int sock2;
-    if ((sock2 = dup(sock)) < 0) {
-        return -1;
-    }
-    if ((*inp = fdopen(sock2, "r")) == NULL) {
-        close(sock2);
-        return -1;
-    }
-    if ((*outp = fdopen(sock, "w")) == NULL) {
-        fclose(*inp);
-        *inp = NULL;
-        return -1;
-    }
-    setvbuf(*outp, (char *)NULL, _IONBF, 0);
-    return 0;
-}
-
-SDL_Color make_color(int r, int g, int b) {
-    SDL_Color ret;
-    ret.r = r;
-    ret.g = g;
-    ret.b = b;
-    return ret;
-}
 
 // 失敗したら負を返す関数用のエラー処理ラッパー
 #define SDL_CALL_NONNGE(func_name, ...)\
@@ -120,113 +29,16 @@ do {\
 } while (0)
 
 
-struct Display {
-    SDL_Window *win;
-    SDL_Renderer *ren;
-};
-int display_init(struct Display *disp, int display_width, int display_height, const char *title) {
-    disp->win = SDL_CreateWindow(
-                    title,
-                    SDL_WINDOWPOS_UNDEFINED,
-                    SDL_WINDOWPOS_UNDEFINED,
-                    display_width,
-                    display_height,
-                    SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL
-                );
-
-    if (disp->win == NULL) {
-        fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
-        return -1;
-    }
-
-    disp->ren = SDL_CreateRenderer(disp->win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (disp->ren == NULL) {
-        SDL_DestroyWindow(disp->win);
-        fprintf(stderr, "SDL_CreateRenderer Error: %s\n", SDL_GetError());
-        return -1;
-    }
-
-    return 0;
-}
-void display_release(struct Display *disp) {
-    SDL_DestroyRenderer(disp->ren);
-    SDL_DestroyWindow(disp->win);
+SDL_Color make_color(int r, int g, int b) {
+    SDL_Color ret;
+    ret.r = r;
+    ret.g = g;
+    ret.b = b;
+    return ret;
 }
 
-int draw_rect(struct Display *disp, int x, int y, int w, int h, SDL_Color color) {
-    SDL_CALL_NONNGE(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
-
-    SDL_Rect rect;
-    rect.x = x;
-    rect.y = y;
-    rect.w = w;
-    rect.h = h;
-    
-    SDL_CALL_NONNGE(SDL_RenderFillRect, disp->ren, &rect);
-}
-
-int draw_line(struct Display *disp, int x1, int y1, int x2, int y2, SDL_Color color) {
-    SDL_CALL_NONNGE(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
-    SDL_CALL_NONNGE(SDL_RenderDrawLine, disp->ren, x1, y1, x2, y2);
-}
-
-int draw_pixel(struct Display *disp, int x, int y, SDL_Color color) {
-    SDL_CALL_NONNGE(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
-    SDL_CALL_NONNGE(SDL_RenderDrawPoint, disp->ren, x, y);
-}
-
-int draw_circle(struct Display *disp, int x_center, int y_center, int radius, char filled, SDL_Color color) {
-    if (filled) {
-        // filled
-        for (int y = -radius - 1; y < radius + 1; ++y) {
-            for (int x = -radius - 1; x < radius + 1; ++x) {
-                if (x * x + y * y <= radius * radius) {
-                    if (draw_pixel(disp, x_center + x, y_center + y, color) < 0) return -1;
-                }
-            }
-        }
-    } else {
-        // Mid-Point Circle Drawing Algorithm
-        //     quoted from: https://www.geeksforgeeks.org/mid-point-circle-drawing-algorithm/
-        int y = 0, x = radius;
-
-        if (draw_pixel(disp, x + x_center, y + y_center, color) < 0) return -1;
-        if (radius > 0) {
-            if (draw_pixel(disp,  x + x_center, -y + y_center, color) < 0) return -1;
-            if (draw_pixel(disp,  y + x_center,  x + y_center, color) < 0) return -1;
-            if (draw_pixel(disp, -y + x_center,  x + y_center, color) < 0) return -1;
-        }
-
-        int P = 1 - radius;
-        while (x > y) {
-            y++;
-            if (P <= 0) {
-                P = P + 2 * y + 1;
-            } else {
-                x--;
-                P = P + 2 * y - 2 * x + 1;
-            }
-
-            if (x < y) break;
-
-            if (draw_pixel(disp,  x + x_center,  y + y_center, color) < 0) return -1;
-            if (draw_pixel(disp, -x + x_center,  y + y_center, color) < 0) return -1;
-            if (draw_pixel(disp,  x + x_center, -y + y_center, color) < 0) return -1;
-            if (draw_pixel(disp, -x + x_center, -y + y_center, color) < 0) return -1;
-
-            if (x != y) {
-                if (draw_pixel(disp,  y + x_center,  x + y_center, color) < 0) return -1;
-                if (draw_pixel(disp, -y + x_center,  x + y_center, color) < 0) return -1;
-                if (draw_pixel(disp,  y + x_center, -x + y_center, color) < 0) return -1;
-                if (draw_pixel(disp, -y + x_center, -x + y_center, color) < 0) return -1;
-            }
-        }
-    }
-}
-
-void present(struct Display *disp) {
-    SDL_RenderPresent(disp->ren);
-}
+#include "lib/queue.h"
+Queue drawing_query_queue;
 
 int receive_request(unsigned char *line, size_t size, FILE *in) {
     if (fread(line, sizeof(unsigned char), size, in)) {
@@ -239,182 +51,10 @@ int receive_request(unsigned char *line, size_t size, FILE *in) {
     }
 }
 
-
-typedef enum {
-    DrawRect,
-    DrawCircle,
-    DrawLine,
-    DrawPixel,
-    ClearScreen,
-    Invalid,
-} DrawingOperation;
-
-struct DrawingQuery {
-    DrawingOperation op;
-    union {
-        struct {
-            int x, y, w, h;
-        } draw_rect_param;
-        struct {
-            int x, y, radius;
-            char filled;
-        } draw_circle_param;
-        struct {
-            int x1, y1, x2, y2;
-        } draw_line_param;
-        struct {
-            int x, y;
-        } draw_pixel_param;
-    } param;
-};
-
-void print_drawing_query(struct DrawingQuery query) {
-    switch (query.op) {
-        case DrawRect:
-            printf("DrawRect(x=%d, y=%d, w=%d, h=%d)\n",
-                query.param.draw_rect_param.x,
-                query.param.draw_rect_param.y,
-                query.param.draw_rect_param.w,
-                query.param.draw_rect_param.h);
-            break;
-        case DrawCircle:
-            printf("DrawCircle(x=%d, y=%d, radius=%d, filled=%d)\n",
-                query.param.draw_circle_param.x,
-                query.param.draw_circle_param.y,
-                query.param.draw_circle_param.radius,
-                (int)query.param.draw_circle_param.filled);
-            break;
-        case DrawLine:
-            printf("DrawLine(x1=%d, y1=%d, x2=%d, y2=%d)\n",
-                query.param.draw_line_param.x1,
-                query.param.draw_line_param.y1,
-                query.param.draw_line_param.x2,
-                query.param.draw_line_param.y2);
-            break;  
-        case DrawPixel:
-            printf("DrawRect(x=%d, y=%d)\n",
-                query.param.draw_rect_param.x,
-                query.param.draw_rect_param.y);
-            break;
-        case ClearScreen:
-            printf("ClearScreen\n");
-            break;
-        default:
-            printf("invlid operator\n");
-            break;
-    }
-}
-
-#define DECODE_INT_LITTLE_FUNC(func_name, type)\
-    type func_name(const unsigned char *buf) {\
-        type ret = 0;\
-        for (int i = 0; i < sizeof(type); i++) {\
-            int x = buf[i];\
-            ret |= (x << (i * 8));\
-        }\
-        return ret;\
-    }
-DECODE_INT_LITTLE_FUNC(decode_int32_little, int)
-DECODE_INT_LITTLE_FUNC(decode_int8_little, char)
-
-struct DrawingQuery decode_query(const unsigned char *buf, size_t size) {
-    struct DrawingQuery ret;
-    switch (buf[0]) {
-        case DrawRect:
-        {
-            if (size < 17) {
-                ret.op = Invalid;
-                break;
-            }
-
-            int x, y, w, h;
-            x = decode_int32_little(buf + 1);
-            y = decode_int32_little(buf + 5);
-            w = decode_int32_little(buf + 9);
-            h = decode_int32_little(buf + 13);
-
-            ret.op = DrawRect;
-            ret.param.draw_rect_param.x = x;
-            ret.param.draw_rect_param.y = y;
-            ret.param.draw_rect_param.w = w;
-            ret.param.draw_rect_param.h = h;
-            break;
-        }
-        case DrawCircle:
-        {
-            if (size < 14) {
-                ret.op = Invalid;
-                break;
-            }
-
-            int x, y, radius;
-            char filled;
-            x = decode_int32_little(buf + 1);
-            y = decode_int32_little(buf + 5);
-            radius = decode_int32_little(buf + 9);
-            filled = decode_int8_little(buf + 13);
-
-            ret.op = DrawCircle;
-            ret.param.draw_circle_param.x = x;
-            ret.param.draw_circle_param.y = y;
-            ret.param.draw_circle_param.radius = radius;
-            ret.param.draw_circle_param.filled = filled;
-            break;
-        }
-        case DrawLine:
-        {
-            if (size < 17) {
-                ret.op = Invalid;
-                break;
-            }
-
-            int x1, y1, x2, y2;
-            x1 = decode_int32_little(buf + 1);
-            y1 = decode_int32_little(buf + 5);
-            x2 = decode_int32_little(buf + 9);
-            y2 = decode_int32_little(buf + 13);
-
-            ret.op = DrawLine;
-            ret.param.draw_line_param.x1 = x1;
-            ret.param.draw_line_param.y1 = y1;
-            ret.param.draw_line_param.x2 = x2;
-            ret.param.draw_line_param.y2 = y2;
-            break;
-        }
-        case DrawPixel:
-        {
-            if (size < 9) {
-                ret.op = Invalid;
-                break;
-            }
-
-            int x, y;
-            x = decode_int32_little(buf + 1);
-            y = decode_int32_little(buf + 5);
-
-            ret.op = DrawPixel;
-            ret.param.draw_pixel_param.x = x;
-            ret.param.draw_pixel_param.y = y;
-            break;
-        }
-        case ClearScreen:
-        {
-            ret.op = ClearScreen;
-            break;
-        }
-    }
-    return ret;
-}
-
-struct Display disp;
-
-#include "lib/queue.h"
-Queue drawing_query_queue;
-
 struct communication_arg {
     int com;
 };
-int communication(struct communication_arg *arg) {
+int communication_thread(struct communication_arg *arg) {
     // print peer address
     {
         struct sockaddr_storage addr ;
@@ -432,8 +72,6 @@ int communication(struct communication_arg *arg) {
     // communicating
     const int LINE_SIZE = 1024;
     unsigned char line[LINE_SIZE];
-    int rcount;
-    int wcount;
     FILE *in, *out;
 
     if (fdopen_sock(arg->com, &in, &out) < 0) {
@@ -455,9 +93,6 @@ int communication(struct communication_arg *arg) {
         queue_push(&drawing_query_queue, &query);
         fprintf(out, "accepted\n");
     }
-    if (rcount < 0) {
-        perror("fgets");
-    }
 
     printf("connection closed.\n");
     fclose(in);
@@ -465,7 +100,12 @@ int communication(struct communication_arg *arg) {
     return 0;
 }
 
-int drawing() {
+int drawing_thread() {
+    struct Display disp;
+    if (display_init(&disp, 1280, 960, "SDL2 test") < 0) {
+        return -1;
+    }
+
     drawing_query_queue = queue_new(sizeof(struct DrawingQuery));
 
     SDL_Event event;
@@ -530,9 +170,7 @@ int drawing() {
                 case ClearScreen:
                 {
                     printf("screen cleared\n");
-                    SDL_CALL_NONNGE(SDL_SetRenderDrawColor, disp.ren, 0, 0, 0, 255);
-                    SDL_RenderClear(disp.ren);
-                    SDL_RenderPresent(disp.ren);
+                    clear_screen(&disp, make_color(0, 0, 0));
                     break;
                 }
                 default:
@@ -548,6 +186,7 @@ int drawing() {
         }
     }
 
+    display_release(&disp);
     queue_free(&drawing_query_queue);
 }
 
@@ -560,46 +199,43 @@ int main(int argc, char *argv[]) {
     int exit_status = 0;
     SDL_CALL_NONNGE(SDL_Init, SDL_INIT_VIDEO);
 
-    // struct Display disp;
-    if (display_init(&disp, 1280, 960, "SDL2 test") < 0) {
-        exit_status = 1;
-        goto EXIT_QUIT;
-    }
-
     int com;
     int portno = strtol(argv[1], NULL, 10);
     int acc = tcp_acc_port(portno, 4);
     if (acc < 0) {
-        return 1;
+        exit_status = -1;
+        goto EXIT_QUIT;
     }
 
-    pthread_t drawing_thread;
-    if (pthread_create(&drawing_thread, NULL, (void *)drawing, NULL) != 0) {
+    pthread_t drawing_thread_id;
+    if (pthread_create(&drawing_thread_id, NULL, (void *)drawing_thread, NULL) != 0) {
         perror("pthread_create(): drawing");
-        exit(1);
+        exit_status = -1;
+        goto EXIT_QUIT;
     }
 
     while (1) {
         printf("[%d] acception incoming connections (acc == %d) ...\n", getpid(), acc);
         if ((com = accept(acc, 0, 0)) < 0) {
             perror("accept");
-            return -1;
+            exit_status = -1;
+            goto EXIT_QUIT;
         }
         struct communication_arg arg;
         arg.com = com;
-        pthread_t worker;
-        if (pthread_create(&worker, NULL, (void *)communication, (void *)&arg) != 0) {
+        pthread_t com_thread_id;
+        if (pthread_create(&com_thread_id, NULL, (void *)communication_thread, (void *)&arg) != 0) {
             perror("pthread_create(): communication");
-            exit(1);
+            exit_status = -1;
+            goto EXIT_QUIT;
         }
-        pthread_detach(worker);
+        pthread_detach(com_thread_id);
     }
 
-    pthread_join(drawing_thread, NULL);
+    pthread_join(drawing_thread_id, NULL);
     
     exit_status = 0;
-EXIT_RELEASE:
-    display_release(&disp);
+
 EXIT_QUIT:
     SDL_Quit();
     return exit_status;
