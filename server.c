@@ -163,25 +163,73 @@ int draw_rect(struct Display *disp, int x, int y, int w, int h, SDL_Color color)
     rect.h = h;
     
     SDL_CALL_NONNGE(SDL_RenderFillRect, disp->ren, &rect);
-    SDL_RenderPresent(disp->ren);
 }
 
 int draw_line(struct Display *disp, int x1, int y1, int x2, int y2, SDL_Color color) {
     SDL_CALL_NONNGE(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
     SDL_CALL_NONNGE(SDL_RenderDrawLine, disp->ren, x1, y1, x2, y2);
-    SDL_RenderPresent(disp->ren);
 }
 
 int draw_pixel(struct Display *disp, int x, int y, SDL_Color color) {
     SDL_CALL_NONNGE(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
     SDL_CALL_NONNGE(SDL_RenderDrawPoint, disp->ren, x, y);
+}
+
+int draw_circle(struct Display *disp, int x_center, int y_center, int radius, char filled, SDL_Color color) {
+    if (filled) {
+        // filled
+        for (int y = -radius - 1; y < radius + 1; ++y) {
+            for (int x = -radius - 1; x < radius + 1; ++x) {
+                if (x * x + y * y <= radius * radius) {
+                    if (draw_pixel(disp, x_center + x, y_center + y, color) < 0) return -1;
+                }
+            }
+        }
+    } else {
+        // Mid-Point Circle Drawing Algorithm
+        //     quoted from: https://www.geeksforgeeks.org/mid-point-circle-drawing-algorithm/
+        int y = 0, x = radius;
+
+        if (draw_pixel(disp, x + x_center, y + y_center, color) < 0) return -1;
+        if (radius > 0) {
+            if (draw_pixel(disp,  x + x_center, -y + y_center, color) < 0) return -1;
+            if (draw_pixel(disp,  y + x_center,  x + y_center, color) < 0) return -1;
+            if (draw_pixel(disp, -y + x_center,  x + y_center, color) < 0) return -1;
+        }
+
+        int P = 1 - radius;
+        while (x > y) {
+            y++;
+            if (P <= 0) {
+                P = P + 2 * y + 1;
+            } else {
+                x--;
+                P = P + 2 * y - 2 * x + 1;
+            }
+
+            if (x < y) break;
+
+            if (draw_pixel(disp,  x + x_center,  y + y_center, color) < 0) return -1;
+            if (draw_pixel(disp, -x + x_center,  y + y_center, color) < 0) return -1;
+            if (draw_pixel(disp,  x + x_center, -y + y_center, color) < 0) return -1;
+            if (draw_pixel(disp, -x + x_center, -y + y_center, color) < 0) return -1;
+
+            if (x != y) {
+                if (draw_pixel(disp,  y + x_center,  x + y_center, color) < 0) return -1;
+                if (draw_pixel(disp, -y + x_center,  x + y_center, color) < 0) return -1;
+                if (draw_pixel(disp,  y + x_center, -x + y_center, color) < 0) return -1;
+                if (draw_pixel(disp, -y + x_center, -x + y_center, color) < 0) return -1;
+            }
+        }
+    }
+}
+
+void present(struct Display *disp) {
     SDL_RenderPresent(disp->ren);
 }
 
-
 int receive_request(unsigned char *line, size_t size, FILE *in) {
     if (fread(line, sizeof(unsigned char), size, in)) {
-    // if (fgets(line, size, in)) {
         return 0;
     } else {
         if (ferror(in)) {
@@ -209,6 +257,7 @@ struct DrawingQuery {
         } draw_rect_param;
         struct {
             int x, y, radius;
+            char filled;
         } draw_circle_param;
         struct {
             int x1, y1, x2, y2;
@@ -229,10 +278,11 @@ void print_drawing_query(struct DrawingQuery query) {
                 query.param.draw_rect_param.h);
             break;
         case DrawCircle:
-            printf("DrawCircle(x=%d, y=%d, radius=%d)\n",
+            printf("DrawCircle(x=%d, y=%d, radius=%d, filled=%d)\n",
                 query.param.draw_circle_param.x,
                 query.param.draw_circle_param.y,
-                query.param.draw_circle_param.radius);
+                query.param.draw_circle_param.radius,
+                (int)query.param.draw_circle_param.filled);
             break;
         case DrawLine:
             printf("DrawLine(x1=%d, y1=%d, x2=%d, y2=%d)\n",
@@ -255,15 +305,17 @@ void print_drawing_query(struct DrawingQuery query) {
     }
 }
 
-
-int decode_int32_little(const unsigned char *buf) {
-    int ret = 0;
-    for (int i = 0; i < 4; i++) {
-        int x = buf[i];
-        ret |= (x << (i * 8));
+#define DECODE_INT_LITTLE_FUNC(func_name, type)\
+    type func_name(const unsigned char *buf) {\
+        type ret = 0;\
+        for (int i = 0; i < sizeof(type); i++) {\
+            int x = buf[i];\
+            ret |= (x << (i * 8));\
+        }\
+        return ret;\
     }
-    return ret;
-}
+DECODE_INT_LITTLE_FUNC(decode_int32_little, int)
+DECODE_INT_LITTLE_FUNC(decode_int8_little, char)
 
 struct DrawingQuery decode_query(const unsigned char *buf, size_t size) {
     struct DrawingQuery ret;
@@ -290,20 +342,23 @@ struct DrawingQuery decode_query(const unsigned char *buf, size_t size) {
         }
         case DrawCircle:
         {
-            if (size < 13) {
+            if (size < 14) {
                 ret.op = Invalid;
                 break;
             }
 
             int x, y, radius;
+            char filled;
             x = decode_int32_little(buf + 1);
             y = decode_int32_little(buf + 5);
             radius = decode_int32_little(buf + 9);
+            filled = decode_int8_little(buf + 13);
 
             ret.op = DrawCircle;
             ret.param.draw_circle_param.x = x;
             ret.param.draw_circle_param.y = y;
             ret.param.draw_circle_param.radius = radius;
+            ret.param.draw_circle_param.filled = filled;
             break;
         }
         case DrawLine:
@@ -439,7 +494,15 @@ int drawing() {
                 }
                 case DrawCircle:
                 {
-                    // TODO
+                    int x_center = query.param.draw_circle_param.x;
+                    int y_center = query.param.draw_circle_param.y;
+                    int radius = query.param.draw_circle_param.radius;
+                    char filled = query.param.draw_circle_param.filled;
+
+                    SDL_Color c = make_color(0, 255, 128);
+                    if (draw_circle(&disp, x_center, y_center, radius, filled, c) < 0) {
+                        return -1;
+                    }
                     break;
                 }
                 case DrawLine:
@@ -478,6 +541,9 @@ int drawing() {
                     break;
                 }
             }
+
+            present(&disp);
+
             printf("draw ok\n");
         }
     }

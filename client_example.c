@@ -77,6 +77,7 @@ struct DrawingQuery {
         } draw_rect_param;
         struct {
             int x, y, radius;
+            char filled;
         } draw_circle_param;
         struct {
             int x1, y1, x2, y2;
@@ -87,12 +88,16 @@ struct DrawingQuery {
     } param;
 };
 
-void encode_int32_little(int value, unsigned char *out) {
-    for (int i = 0; i < 4; i++) {
-        out[i] = (unsigned char)(value & ((1 << 8) - 1));
-        value >>= 8;
+#define ENCODE_INT_LITTLE_FUNC(func_name, type)\
+    void func_name(type value, unsigned char *out) {\
+        for (int i = 0; i < sizeof(type); i++) {\
+            out[i] = (unsigned char)(value & (1 << 8) - 1);\
+            value >>= 8;\
+        }\
     }
-}
+ENCODE_INT_LITTLE_FUNC(encode_int32_little, int)
+ENCODE_INT_LITTLE_FUNC(encode_int8_little, char)
+
 int encode_query(struct DrawingQuery query, unsigned char *out, size_t size) {
     assert(size > 0);
     out[0] = (unsigned char)query.op;
@@ -116,7 +121,7 @@ int encode_query(struct DrawingQuery query, unsigned char *out, size_t size) {
         }
         case DrawCircle:
         {
-            if (size < 13) {
+            if (size < 14) {
                 return -1;
             }
 
@@ -128,6 +133,8 @@ int encode_query(struct DrawingQuery query, unsigned char *out, size_t size) {
             for (int i = 0; i < 3; i++) {
                 encode_int32_little(param[i], out + 1 + i * 4);
             }
+            fprintf(stderr, "filled = %d\n", query.param.draw_circle_param.filled);
+            encode_int8_little(query.param.draw_circle_param.filled, out + 13);
             break;
         }
         case DrawLine:
@@ -198,9 +205,10 @@ int main(int argc, char *argv[]) {
     }
     if (argv[2][0] == '1') {
         query.op = DrawCircle;
-        query.param.draw_circle_param.x = 200;
-        query.param.draw_circle_param.y = 800;
-        query.param.draw_circle_param.radius = 10;
+        query.param.draw_circle_param.x = 400;
+        query.param.draw_circle_param.y = 400;
+        query.param.draw_circle_param.radius = 201;
+        query.param.draw_circle_param.filled = 0;
     }
     if (argv[2][0] == '2') {
         query.op = DrawLine;
