@@ -19,7 +19,7 @@
 #include "lib/queue.h"
 
 // 失敗したら負を返す関数用のエラー処理ラッパー
-#define SDL_CALL_NONNGE(func_name, ...)\
+#define SDL_CALL_NONNEG(func_name, ...)\
 do {\
     if (func_name(__VA_ARGS__) < 0) {\
         fprintf(stderr, #func_name " Error: %s\n", SDL_GetError());\
@@ -209,7 +209,7 @@ int drawing_thread() {
                 }
             }
 
-            present(&disp);
+            display_flush(&disp);  // 画面の更新
 
             printf("draw ok\n");
         }
@@ -229,7 +229,7 @@ int main(int argc, char *argv[]) {
     pthread_mutex_init(&mutex, NULL);
 
     int exit_status = 0;
-    SDL_CALL_NONNGE(SDL_Init, SDL_INIT_VIDEO);
+    SDL_CALL_NONNEG(SDL_Init, SDL_INIT_VIDEO);
 
     int com;
     int portno = strtol(argv[1], NULL, 10);

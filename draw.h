@@ -15,6 +15,4 @@ int draw_circle(struct Display *disp, int x_center, int y_center, int radius, ch
 
 int clear_screen(struct Display *disp, SDL_Color color);
 
-int present(struct Display *disp);
-
 #endif
