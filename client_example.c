@@ -97,7 +97,8 @@ int main(int argc, char *argv[]) {
     }
     printf("%s", rbuf);
 
-    sleep(1);
+    // sleep(1);
+    usleep(2000);
 
     memset(message, 0, sizeof(message));
     query.op = DrawRect;

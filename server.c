@@ -37,6 +37,7 @@ SDL_Color make_color(int r, int g, int b) {
 }
 
 Queue query_queue;
+pthread_mutex_t mutex;
 
 int receive_request(unsigned char *line, size_t size, FILE *in) {
     if (fread(line, sizeof(unsigned char), size, in)) {
@@ -88,7 +89,22 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
         struct Query query = decode_query(line, LINE_SIZE);
         print_query(query);
-        queue_push(&query_queue, &query);
+        {
+            int r;
+            r = pthread_mutex_lock(&mutex);
+            if (r != 0) {
+                fprintf(stderr, "can not lock\n");
+                break;
+            }
+            {
+                queue_push(&query_queue, &query);
+            }
+            r = pthread_mutex_unlock(&mutex);
+            if (r != 0) {
+                fprintf(stderr, "can not lock\n");
+                break;
+            }
+        }
         fprintf(out, "accepted\n");
     }
 
@@ -106,24 +122,32 @@ int drawing_thread() {
 
     query_queue = queue_new(sizeof(struct Query));
 
-    if (draw_rect(&disp, 600, 600, 50, 50, make_color(123, 123, 255)) < 0) {
-        return -1;
-    }
-    if (draw_rect(&disp, 800, 600, 50, 50, make_color(123, 123, 255)) < 0) {
-        return -1;
-    }
-    present(&disp);
-
     SDL_Event event;
     while (1) {
         SDL_PollEvent(&event);
         if (event.type == SDL_QUIT) {
-            return 0;
+            break;
         }
 
         if(!queue_empty(&query_queue)) {
-            struct Query query = *(struct Query *)queue_front(&query_queue);
-            queue_pop(&query_queue);
+            struct Query query;
+            {
+                int r;
+                r = pthread_mutex_lock(&mutex);
+                if (r != 0) {
+                    fprintf(stderr, "can not lock\n");
+                    break;
+                }
+                {
+                    query = *(struct Query *)queue_front(&query_queue);
+                    queue_pop(&query_queue);
+                }
+                r = pthread_mutex_unlock(&mutex);
+                if (r != 0) {
+                    fprintf(stderr, "can not lock\n");
+                    break;
+                }
+            }
             printf("drawing --> "); print_query(query);
             switch (query.op) {
                 case DrawRect:
@@ -193,6 +217,7 @@ int drawing_thread() {
 
     display_release(&disp);
     queue_free(&query_queue);
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -200,6 +225,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Usage: %s portno\n", argv[0]);
         return 1;
     }
+
+    pthread_mutex_init(&mutex, NULL);
 
     int exit_status = 0;
     SDL_CALL_NONNGE(SDL_Init, SDL_INIT_VIDEO);
@@ -238,7 +265,7 @@ int main(int argc, char *argv[]) {
     }
 
     pthread_join(drawing_thread_id, NULL);
-    
+
     exit_status = 0;
 
 EXIT_QUIT:
