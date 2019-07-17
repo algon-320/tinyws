@@ -108,7 +108,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
 int drawing_thread() {
     struct Display disp;
-    if (display_init(&disp, 1280, 960, "tinyws") < 0) {
+    if (display_new(&disp, size_new(1280, 960), "tinyws virtual display") < 0) {
         return -1;
     }
 
