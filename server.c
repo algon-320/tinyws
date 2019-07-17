@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "basic_structures.h"
 #include "tcp.h"
 #include "display.h"
 #include "draw.h"
@@ -26,15 +27,6 @@ do {\
         return -1;\
     }\
 } while (0)
-
-
-SDL_Color make_color(int r, int g, int b) {
-    SDL_Color ret;
-    ret.r = r;
-    ret.g = g;
-    ret.b = b;
-    return ret;
-}
 
 Queue query_queue;
 pthread_mutex_t mutex;
@@ -126,6 +118,7 @@ int drawing_thread() {
     while (1) {
         SDL_PollEvent(&event);
         if (event.type == SDL_QUIT) {
+            exit(1);
             break;
         }
 
@@ -156,7 +149,7 @@ int drawing_thread() {
                     int y = query.param.draw_rect_param.y;
                     int w = query.param.draw_rect_param.w;
                     int h = query.param.draw_rect_param.h;
-                    SDL_Color c = make_color(255, 0, 0);
+                    Color c = color_new(255, 0, 0);
                     if (draw_rect(&disp, x, y, w, h, c) < 0) {
                         return -1;
                     }
@@ -169,7 +162,7 @@ int drawing_thread() {
                     int radius = query.param.draw_circle_param.radius;
                     char filled = query.param.draw_circle_param.filled;
 
-                    SDL_Color c = make_color(0, 255, 128);
+                    Color c = color_new(0, 255, 128);
                     if (draw_circle(&disp, x_center, y_center, radius, filled, c) < 0) {
                         return -1;
                     }
@@ -181,7 +174,7 @@ int drawing_thread() {
                     int y1 = query.param.draw_line_param.y1;
                     int x2 = query.param.draw_line_param.x2;
                     int y2 = query.param.draw_line_param.y2;
-                    SDL_Color c = make_color(255, 128, 0);
+                    Color c = color_new(255, 128, 0);
                     if (draw_line(&disp, x1, y1, x2, y2, c) < 0) {
                         return -1;
                     }
@@ -191,7 +184,7 @@ int drawing_thread() {
                 {
                     int x = query.param.draw_pixel_param.x;
                     int y = query.param.draw_pixel_param.y;
-                    SDL_Color c = make_color(255, 0, 128);
+                    Color c = color_new(255, 0, 128);
                     if (draw_pixel(&disp, x, y, c) < 0) {
                         return -1;
                     }
@@ -199,7 +192,7 @@ int drawing_thread() {
                 }
                 case ClearScreen:
                 {
-                    clear_screen(&disp, make_color(0, 0, 0));
+                    clear_screen(&disp, color_new(0, 0, 0));
                     break;
                 }
                 default:
@@ -230,6 +223,7 @@ int main(int argc, char *argv[]) {
 
     int exit_status = 0;
     SDL_CALL_NONNEG(SDL_Init, SDL_INIT_VIDEO);
+    SDL_ShowCursor(SDL_DISABLE);
 
     int com;
     int portno = strtol(argv[1], NULL, 10);

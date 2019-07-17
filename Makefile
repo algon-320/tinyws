@@ -1,4 +1,4 @@
-SERVER_REQUIRE_OBJS = container_lib.o display.o draw.o query.o tcp.o
+SERVER_REQUIRE_OBJS = container_lib.o display.o draw.o query.o tcp.o basic_structures.o window.o
 CC = gcc
 CFLAGS = -Wall -Wextra -g
 
@@ -12,6 +12,8 @@ server.out: server.c $(SERVER_REQUIRE_OBJS)
 container_lib.o: lib/deque.c
 	$(CC) -c lib/deque.c -o container_lib.o $(CFLAGS) 
 
+basic_structures.o: basic_structures.c
+	$(CC) -c $^ -o $@ $(CFLAGS)
 display.o: display.c
 	$(CC) -c $^ -o $@ $(CFLAGS)
 draw.o: draw.c
@@ -19,6 +21,8 @@ draw.o: draw.c
 query.o: query.c
 	$(CC) -c $^ -o $@ $(CFLAGS)
 tcp.o: tcp.c
+	$(CC) -c $^ -o $@ $(CFLAGS)
+window.o: window.c
 	$(CC) -c $^ -o $@ $(CFLAGS)
 
 CLIENT_REQUIRE_OBJS = query.o tcp.o

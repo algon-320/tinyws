@@ -13,7 +13,7 @@ do {\
 } while (0)
 
 
-int draw_rect(struct Display *disp, int x, int y, int w, int h, SDL_Color color) {
+int draw_rect(struct Display *disp, int x, int y, int w, int h, Color color) {
     SDL_CALL_NONNEG(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
 
     SDL_Rect rect;
@@ -26,19 +26,19 @@ int draw_rect(struct Display *disp, int x, int y, int w, int h, SDL_Color color)
     return 0;
 }
 
-int draw_line(struct Display *disp, int x1, int y1, int x2, int y2, SDL_Color color) {
+int draw_line(struct Display *disp, int x1, int y1, int x2, int y2, Color color) {
     SDL_CALL_NONNEG(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
     SDL_CALL_NONNEG(SDL_RenderDrawLine, disp->ren, x1, y1, x2, y2);
     return 0;
 }
 
-int draw_pixel(struct Display *disp, int x, int y, SDL_Color color) {
+int draw_pixel(struct Display *disp, int x, int y, Color color) {
     SDL_CALL_NONNEG(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
     SDL_CALL_NONNEG(SDL_RenderDrawPoint, disp->ren, x, y);
     return 0;
 }
 
-int draw_circle(struct Display *disp, int x_center, int y_center, int radius, char filled, SDL_Color color) {
+int draw_circle(struct Display *disp, int x_center, int y_center, int radius, char filled, Color color) {
     if (filled) {
         // filled
         for (int y = -radius - 1; y < radius + 1; ++y) {
@@ -88,9 +88,9 @@ int draw_circle(struct Display *disp, int x_center, int y_center, int radius, ch
     return 0;
 }
 
-int clear_screen(struct Display *disp, SDL_Color color) {
+int clear_screen(struct Display *disp, Color color) {
     fprintf(stderr, "clear_screen called\n");
-    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, color.a);
+    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, 255);
     SDL_RenderClear(disp->ren);
     return 0;
 }
