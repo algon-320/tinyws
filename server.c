@@ -10,14 +10,13 @@
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
-
 #include <pthread.h>
 
 #include "tcp.h"
 #include "display.h"
 #include "draw.h"
 #include "query.h"
-
+#include "lib/queue.h"
 
 // 失敗したら負を返す関数用のエラー処理ラッパー
 #define SDL_CALL_NONNGE(func_name, ...)\
@@ -37,8 +36,7 @@ SDL_Color make_color(int r, int g, int b) {
     return ret;
 }
 
-#include "lib/queue.h"
-Queue drawing_query_queue;
+Queue query_queue;
 
 int receive_request(unsigned char *line, size_t size, FILE *in) {
     if (fread(line, sizeof(unsigned char), size, in)) {
@@ -51,10 +49,10 @@ int receive_request(unsigned char *line, size_t size, FILE *in) {
     }
 }
 
-struct communication_arg {
+struct interaction_thread_arg {
     int com;
 };
-int communication_thread(struct communication_arg *arg) {
+int interaction_thread(struct interaction_thread_arg *arg) {
     // print peer address
     {
         struct sockaddr_storage addr ;
@@ -88,9 +86,9 @@ int communication_thread(struct communication_arg *arg) {
         printf("]\n");
         fflush(stdout);
 
-        struct DrawingQuery query = decode_query(line, LINE_SIZE);
-        print_drawing_query(query);
-        queue_push(&drawing_query_queue, &query);
+        struct Query query = decode_query(line, LINE_SIZE);
+        print_query(query);
+        queue_push(&query_queue, &query);
         fprintf(out, "accepted\n");
     }
 
@@ -106,7 +104,15 @@ int drawing_thread() {
         return -1;
     }
 
-    drawing_query_queue = queue_new(sizeof(struct DrawingQuery));
+    query_queue = queue_new(sizeof(struct Query));
+
+    if (draw_rect(&disp, 600, 600, 50, 50, make_color(123, 123, 255)) < 0) {
+        return -1;
+    }
+    if (draw_rect(&disp, 800, 600, 50, 50, make_color(123, 123, 255)) < 0) {
+        return -1;
+    }
+    present(&disp);
 
     SDL_Event event;
     while (1) {
@@ -115,10 +121,10 @@ int drawing_thread() {
             return 0;
         }
 
-        if(!queue_empty(&drawing_query_queue)) {
-            struct DrawingQuery query = *(struct DrawingQuery *)queue_front(&drawing_query_queue);
-            queue_pop(&drawing_query_queue);
-
+        if(!queue_empty(&query_queue)) {
+            struct Query query = *(struct Query *)queue_front(&query_queue);
+            queue_pop(&query_queue);
+            printf("drawing --> "); print_query(query);
             switch (query.op) {
                 case DrawRect:
                 {
@@ -169,7 +175,6 @@ int drawing_thread() {
                 }
                 case ClearScreen:
                 {
-                    printf("screen cleared\n");
                     clear_screen(&disp, make_color(0, 0, 0));
                     break;
                 }
@@ -187,7 +192,7 @@ int drawing_thread() {
     }
 
     display_release(&disp);
-    queue_free(&drawing_query_queue);
+    queue_free(&query_queue);
 }
 
 int main(int argc, char *argv[]) {
@@ -221,10 +226,10 @@ int main(int argc, char *argv[]) {
             exit_status = -1;
             goto EXIT_QUIT;
         }
-        struct communication_arg arg;
+        struct interaction_thread_arg arg;
         arg.com = com;
         pthread_t com_thread_id;
-        if (pthread_create(&com_thread_id, NULL, (void *)communication_thread, (void *)&arg) != 0) {
+        if (pthread_create(&com_thread_id, NULL, (void *)interaction_thread, (void *)&arg) != 0) {
             perror("pthread_create(): communication");
             exit_status = -1;
             goto EXIT_QUIT;

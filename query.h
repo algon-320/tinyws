@@ -11,10 +11,10 @@ typedef enum {
     DrawPixel,
     ClearScreen,
     Invalid,
-} DrawingOperation;
+} Operation;
 
-struct DrawingQuery {
-    DrawingOperation op;
+struct Query {
+    Operation op;
     union {
         struct {
             int x, y, w, h;
@@ -32,9 +32,9 @@ struct DrawingQuery {
     } param;
 };
 
-void print_drawing_query(struct DrawingQuery query);
+void print_query(struct Query query);
 
-int encode_query(struct DrawingQuery query, unsigned char *out, size_t size);
-struct DrawingQuery decode_query(const unsigned char *buf, size_t size);
+int encode_query(struct Query query, unsigned char *out, size_t size);
+struct Query decode_query(const unsigned char *buf, size_t size);
 
 #endif

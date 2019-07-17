@@ -89,6 +89,7 @@ int draw_circle(struct Display *disp, int x_center, int y_center, int radius, ch
 }
 
 int clear_screen(struct Display *disp, SDL_Color color) {
+    fprintf(stderr, "clear_screen called\n");
     SDL_CALL_NONNGE(SDL_SetRenderDrawColor, disp->ren, color.r, color.g, color.b, color.a);
     SDL_RenderClear(disp->ren);
     return 0;

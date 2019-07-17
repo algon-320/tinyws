@@ -3,7 +3,7 @@
 
 #include "query.h"
 
-void print_drawing_query(struct DrawingQuery query) {
+void print_query(struct Query query) {
     switch (query.op) {
         case DrawRect:
             printf("DrawRect(x=%d, y=%d, w=%d, h=%d)\n",
@@ -52,7 +52,7 @@ void print_drawing_query(struct DrawingQuery query) {
 ENCODE_INT_LITTLE_FUNC(encode_int32_little, int)
 ENCODE_INT_LITTLE_FUNC(encode_int8_little, char)
 
-int encode_query(struct DrawingQuery query, unsigned char *out, size_t size) {
+int encode_query(struct Query query, unsigned char *out, size_t size) {
     assert(size > 0);
     out[0] = (unsigned char)query.op;
     switch (query.op) {
@@ -87,7 +87,6 @@ int encode_query(struct DrawingQuery query, unsigned char *out, size_t size) {
             for (int i = 0; i < 3; i++) {
                 encode_int32_little(param[i], out + 1 + i * 4);
             }
-            fprintf(stderr, "filled = %d\n", query.param.draw_circle_param.filled);
             encode_int8_little(query.param.draw_circle_param.filled, out + 13);
             break;
         }
@@ -151,8 +150,8 @@ int encode_query(struct DrawingQuery query, unsigned char *out, size_t size) {
 DECODE_INT_LITTLE_FUNC(decode_int32_little, int)
 DECODE_INT_LITTLE_FUNC(decode_int8_little, char)
 
-struct DrawingQuery decode_query(const unsigned char *buf, size_t size) {
-    struct DrawingQuery ret;
+struct Query decode_query(const unsigned char *buf, size_t size) {
+    struct Query ret;
     switch (buf[0]) {
         case DrawRect:
         {

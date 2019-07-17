@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     unsigned char message[1024];
     memset(message, 0, sizeof(message));
 
-    struct DrawingQuery query;
+    struct Query query;
     if (argv[2][0] == '0') {
         query.op = DrawRect;
         query.param.draw_rect_param.x = 400;
@@ -43,8 +43,8 @@ int main(int argc, char *argv[]) {
         query.op = DrawLine;
         query.param.draw_line_param.x1 = 800;
         query.param.draw_line_param.y1 = 400;
-        query.param.draw_line_param.x2 = 800;
-        query.param.draw_line_param.y2 = 800;
+        query.param.draw_line_param.x2 = 500;
+        query.param.draw_line_param.y2 = 500;
     }
     if (argv[2][0] == '3') {
         query.op = DrawPixel;
@@ -79,6 +79,41 @@ int main(int argc, char *argv[]) {
         ret_code = 1;
         goto CLOSE_SOCK;
     }
+
+    // send request
+    res = fwrite(message, sizeof(unsigned char), 1024, out);
+    // res = fprintf(out, "%s", message);
+    if (res < 0) {
+        fprintf(stderr, "fwrite()\n");
+        ret_code = 1;
+        goto CLOSE_FP;
+    }
+    
+    // receive responce
+    if (fgets(rbuf, BUFFERSIZE, in) == NULL) {
+        fprintf(stderr, "fprintf()\n");
+        ret_code = 1;
+        goto CLOSE_FP;
+    }
+    printf("%s", rbuf);
+
+    sleep(1);
+
+    memset(message, 0, sizeof(message));
+    query.op = DrawRect;
+    query.param.draw_rect_param.x = 700;
+    query.param.draw_rect_param.y = 700;
+    query.param.draw_rect_param.w = 100;
+    query.param.draw_rect_param.h = 100;
+    if (encode_query(query, message, 1024) < 0) {
+        fprintf(stderr, "buffer too small\n");
+        return 1;
+    }
+    printf("message: [");
+    for (int i = 0; i < 20; i++) {
+        printf("%d ", (unsigned char)message[i]);
+    }
+    printf("]\n");
 
     // send request
     res = fwrite(message, sizeof(unsigned char), 1024, out);
