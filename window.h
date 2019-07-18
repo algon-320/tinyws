@@ -10,6 +10,7 @@ struct Window {
     int id;
     Point pos;
     Size size;
+    uint8_t visible;
     char tilte[256];
     size_t children_size;
     Color background_color;

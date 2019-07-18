@@ -4,35 +4,61 @@
 #include "query.h"
 
 void print_query(struct Query query) {
-    switch (query.op) {
-        case DrawRect:
-            printf("DrawRect(x=%d, y=%d, w=%d, h=%d)\n",
-                query.param.draw_rect_param.x,
-                query.param.draw_rect_param.y,
-                query.param.draw_rect_param.w,
-                query.param.draw_rect_param.h);
+    switch (query.type) {
+        case TINYWS_QUERY_DRAW_RECT:
+            printf("TINYWS_QUERY_DRAW_RECT(x=%d, y=%d, w=%d, h=%d)\n",
+                    query.param.draw_rect.x,
+                    query.param.draw_rect.y,
+                    query.param.draw_rect.w,
+                    query.param.draw_rect.h
+                    );
             break;
-        case DrawCircle:
-            printf("DrawCircle(x=%d, y=%d, radius=%d, filled=%d)\n",
-                query.param.draw_circle_param.x,
-                query.param.draw_circle_param.y,
-                query.param.draw_circle_param.radius,
-                (int)query.param.draw_circle_param.filled);
+        case TINYWS_QUERY_DRAW_CIRCLE:
+            printf("TINYWS_QUERY_DRAW_CIRCLE(x=%d, y=%d, radius=%d, filled=%d)\n",
+                    query.param.draw_circle.x,
+                    query.param.draw_circle.y,
+                    query.param.draw_circle.radius,
+                    query.param.draw_circle.filled
+                    );
             break;
-        case DrawLine:
-            printf("DrawLine(x1=%d, y1=%d, x2=%d, y2=%d)\n",
-                query.param.draw_line_param.x1,
-                query.param.draw_line_param.y1,
-                query.param.draw_line_param.x2,
-                query.param.draw_line_param.y2);
+        case TINYWS_QUERY_DRAW_LINE:
+            printf("TINYWS_QUERY_DRAW_LINE(x1=%d, y1=%d, x2=%d, y2=%d)\n",
+                    query.param.draw_line.x1,
+                    query.param.draw_line.y1,
+                    query.param.draw_line.x2,
+                    query.param.draw_line.y2
+                    );
             break;  
-        case DrawPixel:
-            printf("DrawRect(x=%d, y=%d)\n",
-                query.param.draw_rect_param.x,
-                query.param.draw_rect_param.y);
+        case TINYWS_QUERY_DRAW_PIXEL:
+            printf("TINYWS_QUERY_DRAW_PIXEL(x=%d, y=%d)\n",
+                    query.param.draw_rect.x,
+                    query.param.draw_rect.y
+                    );
             break;
-        case ClearScreen:
-            printf("ClearScreen\n");
+        case TINYWS_QUERY_CLEAR_SCREEN:
+            printf("TINYWS_QUERY_CLEAR_SCREEN\n");
+            break;
+        case TINYWS_QUERY_CREATE_WINDOW:
+            printf("TINYWS_QUERY_CREATE_WINDOW(pwid=%d, width=%d, height=%d, pos_x=%d, pos_y=%d)\n",
+                    query.param.create_window.parent_window_id,
+                    query.param.create_window.width,
+                    query.param.create_window.height,
+                    query.param.create_window.pos_x,
+                    query.param.create_window.pos_y
+                    );
+            break;
+        case TINYWS_QUERY_SET_WINDOW_POS:
+            printf("TINYWS_QUERY_SET_WINDOW_POS(wid=%d, pos_x=%d, pos_y=%d)\n",
+                    query.param.set_window_pos.window_id,
+                    query.param.set_window_pos.pos_x,
+                    query.param.set_window_pos.pos_y
+                    );
+            break;
+        case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
+            printf("TINYWS_QUERY_SET_WINDOW_VISIBILITY(wid=%d, visible=%d)\n",
+                    query.param.set_window_visibility.window_id,
+                    query.param.set_window_visibility.visible
+                    );
             break;
         default:
             printf("invlid operator\n");
@@ -49,86 +75,109 @@ void print_query(struct Query query) {
             value >>= 8;\
         }\
     }
-ENCODE_INT_LITTLE_FUNC(encode_int32_little, int)
-ENCODE_INT_LITTLE_FUNC(encode_int8_little, char)
+ENCODE_INT_LITTLE_FUNC(encode_int32_little, int32_t)
+ENCODE_INT_LITTLE_FUNC(encode_uint8_little, unsigned char)
 
 int encode_query(struct Query query, unsigned char *out, size_t size) {
     assert(size > 0);
-    out[0] = (unsigned char)query.op;
-    switch (query.op) {
-        case DrawRect:
-        {
-            if (size < 17) {
-                return -1;
-            }
+    out[0] = (unsigned char)query.type;
+    switch (query.type) {
+        // TODO check out buffer size
 
-            int param[4] = {
-                query.param.draw_rect_param.x,
-                query.param.draw_rect_param.y,
-                query.param.draw_rect_param.w,
-                query.param.draw_rect_param.h
+        case TINYWS_QUERY_DRAW_RECT:
+        {
+            int32_t param[4] = {
+                query.param.draw_rect.x,
+                query.param.draw_rect.y,
+                query.param.draw_rect.w,
+                query.param.draw_rect.h
             };
             for (int i = 0; i < 4; i++) {
-                encode_int32_little(param[i], out + 1 + i * 4);
+                encode_int32_little(param[i], out + 1 + i * sizeof(int32_t));
             }
             break;
         }
-        case DrawCircle:
+        case TINYWS_QUERY_DRAW_CIRCLE:
         {
-            if (size < 14) {
-                return -1;
-            }
-
-            int param[3] = {
-                query.param.draw_circle_param.x,
-                query.param.draw_circle_param.y,
-                query.param.draw_circle_param.radius
+            int32_t param[3] = {
+                query.param.draw_circle.x,
+                query.param.draw_circle.y,
+                query.param.draw_circle.radius
             };
             for (int i = 0; i < 3; i++) {
-                encode_int32_little(param[i], out + 1 + i * 4);
+                encode_int32_little(param[i], out + 1 + i * sizeof(int32_t));
             }
-            encode_int8_little(query.param.draw_circle_param.filled, out + 13);
+            encode_uint8_little(query.param.draw_circle.filled, out + 1 + 3 * sizeof(int32_t));
             break;
         }
-        case DrawLine:
+        case TINYWS_QUERY_DRAW_LINE:
         {
-            if (size < 17) {
-                return -1;
-            }
-
-            int param[4] = {
-                query.param.draw_line_param.x1,
-                query.param.draw_line_param.y1,
-                query.param.draw_line_param.x2,
-                query.param.draw_line_param.y2
+            int32_t param[4] = {
+                query.param.draw_line.x1,
+                query.param.draw_line.y1,
+                query.param.draw_line.x2,
+                query.param.draw_line.y2
             };
             for (int i = 0; i < 4; i++) {
-                encode_int32_little(param[i], out + 1 + i * 4);
+                encode_int32_little(param[i], out + 1 + i * sizeof(int32_t));
             }
             break;
         }
-        case DrawPixel:
+        case TINYWS_QUERY_DRAW_PIXEL:
         {
-            if (size < 9) {
-                return -1;
-            }
-
-            int param[2] = {
-                query.param.draw_pixel_param.x,
-                query.param.draw_pixel_param.y,
+            int32_t param[2] = {
+                query.param.draw_pixel.x,
+                query.param.draw_pixel.y,
             };
             for (int i = 0; i < 2; i++) {
-                encode_int32_little(param[i], out + 1 + i * 4);
+                encode_int32_little(param[i], out + 1 + i * sizeof(int32_t));
             }
             break;
         }
-        case ClearScreen:
+        case TINYWS_QUERY_CLEAR_SCREEN:
         {
-            // no body
             break;
         }
+
+        // Window management
+        case TINYWS_QUERY_CREATE_WINDOW:
+        {
+            int32_t param[5] = {
+                query.param.create_window.parent_window_id,
+                query.param.create_window.width,
+                query.param.create_window.height,
+                query.param.create_window.pos_x,
+                query.param.create_window.pos_y,
+            };
+            for (int i = 0; i < 5; i++) {
+                encode_int32_little(param[i], out + 1 + i * sizeof(int32_t));
+            }
+            break;
+        }
+        case TINYWS_QUERY_SET_WINDOW_POS:
+        {
+            int32_t param[3] = {
+                query.param.set_window_pos.window_id,
+                query.param.set_window_pos.pos_x,
+                query.param.set_window_pos.pos_y,
+            };
+            for (int i = 0; i < 3; i++) {
+                encode_int32_little(param[i], out + 1 + i * sizeof(int32_t));
+            }
+            break;
+        }
+        case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
+        {
+            encode_int32_little(query.param.set_window_visibility.window_id,
+                    out + 1 + 0 * sizeof(int32_t));
+            encode_uint8_little(query.param.set_window_visibility.visible,
+                    out + 1 + 1 * sizeof(int32_t));
+            break;
+        }
+
         default:
         {
+            fprintf(stderr, "invalid query type\n");
             assert(0);
             break;
         }
@@ -147,92 +196,110 @@ int encode_query(struct Query query, unsigned char *out, size_t size) {
         }\
         return ret;\
     }
-DECODE_INT_LITTLE_FUNC(decode_int32_little, int)
-DECODE_INT_LITTLE_FUNC(decode_int8_little, char)
+DECODE_INT_LITTLE_FUNC(decode_int32_little, int32_t)
+DECODE_INT_LITTLE_FUNC(decode_uint8_little, unsigned char)
 
 struct Query decode_query(const unsigned char *buf, size_t size) {
     struct Query ret;
     switch (buf[0]) {
-        case DrawRect:
+        // TODO check buf size
+        case TINYWS_QUERY_DRAW_RECT:
         {
-            if (size < 17) {
-                ret.op = Invalid;
-                break;
-            }
-
             int x, y, w, h;
-            x = decode_int32_little(buf + 1);
-            y = decode_int32_little(buf + 5);
-            w = decode_int32_little(buf + 9);
-            h = decode_int32_little(buf + 13);
+            x = decode_int32_little(buf + 1 + sizeof(int32_t) * 0);
+            y = decode_int32_little(buf + 1 + sizeof(int32_t) * 1);
+            w = decode_int32_little(buf + 1 + sizeof(int32_t) * 2);
+            h = decode_int32_little(buf + 1 + sizeof(int32_t) * 3);
 
-            ret.op = DrawRect;
-            ret.param.draw_rect_param.x = x;
-            ret.param.draw_rect_param.y = y;
-            ret.param.draw_rect_param.w = w;
-            ret.param.draw_rect_param.h = h;
+            ret.type = TINYWS_QUERY_DRAW_RECT;
+            ret.param.draw_rect.x = x;
+            ret.param.draw_rect.y = y;
+            ret.param.draw_rect.w = w;
+            ret.param.draw_rect.h = h;
             break;
         }
-        case DrawCircle:
+        case TINYWS_QUERY_DRAW_CIRCLE:
         {
-            if (size < 14) {
-                ret.op = Invalid;
-                break;
-            }
+            int x, y, r;
+            char f;
+            x = decode_int32_little(buf + 1 + sizeof(int32_t) * 0);
+            y = decode_int32_little(buf + 1 + sizeof(int32_t) * 1);
+            r = decode_int32_little(buf + 1 + sizeof(int32_t) * 2);
+            f = decode_uint8_little(buf + 1 + sizeof(int32_t) * 3);
 
-            int x, y, radius;
-            char filled;
-            x = decode_int32_little(buf + 1);
-            y = decode_int32_little(buf + 5);
-            radius = decode_int32_little(buf + 9);
-            filled = decode_int8_little(buf + 13);
-
-            ret.op = DrawCircle;
-            ret.param.draw_circle_param.x = x;
-            ret.param.draw_circle_param.y = y;
-            ret.param.draw_circle_param.radius = radius;
-            ret.param.draw_circle_param.filled = filled;
+            ret.type = TINYWS_QUERY_DRAW_CIRCLE;
+            ret.param.draw_circle.x = x;
+            ret.param.draw_circle.y = y;
+            ret.param.draw_circle.radius = r;
+            ret.param.draw_circle.filled = f;
             break;
         }
-        case DrawLine:
+        case TINYWS_QUERY_DRAW_LINE:
         {
-            if (size < 17) {
-                ret.op = Invalid;
-                break;
-            }
-
             int x1, y1, x2, y2;
-            x1 = decode_int32_little(buf + 1);
-            y1 = decode_int32_little(buf + 5);
-            x2 = decode_int32_little(buf + 9);
-            y2 = decode_int32_little(buf + 13);
+            x1 = decode_int32_little(buf + 1 + sizeof(int32_t) * 0);
+            y1 = decode_int32_little(buf + 1 + sizeof(int32_t) * 1);
+            x2 = decode_int32_little(buf + 1 + sizeof(int32_t) * 2);
+            y2 = decode_int32_little(buf + 1 + sizeof(int32_t) * 3);
 
-            ret.op = DrawLine;
-            ret.param.draw_line_param.x1 = x1;
-            ret.param.draw_line_param.y1 = y1;
-            ret.param.draw_line_param.x2 = x2;
-            ret.param.draw_line_param.y2 = y2;
+            ret.type = TINYWS_QUERY_DRAW_LINE;
+            ret.param.draw_line.x1 = x1;
+            ret.param.draw_line.y1 = y1;
+            ret.param.draw_line.x2 = x2;
+            ret.param.draw_line.y2 = y2;
             break;
         }
-        case DrawPixel:
+        case TINYWS_QUERY_DRAW_PIXEL:
         {
-            if (size < 9) {
-                ret.op = Invalid;
-                break;
-            }
-
             int x, y;
-            x = decode_int32_little(buf + 1);
-            y = decode_int32_little(buf + 5);
+            x = decode_int32_little(buf + 1 + sizeof(int32_t) * 0);
+            y = decode_int32_little(buf + 1 + sizeof(int32_t) * 1);
 
-            ret.op = DrawPixel;
-            ret.param.draw_pixel_param.x = x;
-            ret.param.draw_pixel_param.y = y;
+            ret.type = TINYWS_QUERY_DRAW_PIXEL;
+            ret.param.draw_pixel.x = x;
+            ret.param.draw_pixel.y = y;
             break;
         }
-        case ClearScreen:
+        case TINYWS_QUERY_CLEAR_SCREEN:
         {
-            ret.op = ClearScreen;
+            ret.type = TINYWS_QUERY_CLEAR_SCREEN;
+            break;
+        }
+
+        // window management
+        case TINYWS_QUERY_CREATE_WINDOW:
+        {
+            ret.type = TINYWS_QUERY_CREATE_WINDOW;
+            ret.param.create_window.parent_window_id
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 0);
+            ret.param.create_window.width
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 1);
+            ret.param.create_window.height
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 2);
+            ret.param.create_window.pos_x
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 3);
+            ret.param.create_window.pos_y
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 4);
+            break;
+        }
+        case TINYWS_QUERY_SET_WINDOW_POS:
+        {
+            ret.type = TINYWS_QUERY_SET_WINDOW_POS;
+            ret.param.set_window_pos.window_id
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 0);
+            ret.param.set_window_pos.pos_x
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 1);
+            ret.param.set_window_pos.pos_y
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 2);
+            break;
+        }
+        case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
+        {
+            ret.type = TINYWS_QUERY_SET_WINDOW_VISIBILITY;
+            ret.param.set_window_visibility.window_id
+                = decode_int32_little(buf + 1 + sizeof(int32_t) * 0);
+            ret.param.set_window_visibility.visible
+                = decode_uint8_little(buf + 1 + sizeof(int32_t) * 1);
             break;
         }
     }

@@ -25,6 +25,7 @@ int window_new(struct Window *win, struct Display *disp, Point pos, Size size, c
     ret.pos = pos;
     ret.size = size;
     ret.background_color = bg_color;
+    ret.visible = 1;
     strncpy(ret.tilte, title, 256);
     ret.children = NULL;
     ret.children_size = 0;
@@ -42,6 +43,10 @@ int window_release(struct Window *win) {
 }
 
 int window_draw(struct Window *win, struct Display *disp) {
+    if (!win->visible) {
+        return 0;
+    }
+
     SDL_Rect rect;
     rect.x = win->pos.x;
     rect.y = win->pos.y;

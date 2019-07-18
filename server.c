@@ -31,6 +31,9 @@ do {\
 
 Queue query_queue;
 pthread_mutex_t mutex;
+#define WINDOW_MAX_NUM (256)
+struct Window *window[WINDOW_MAX_NUM];
+int window_ord[WINDOW_MAX_NUM];
 
 int receive_request(unsigned char *line, size_t size, FILE *in) {
     if (fread(line, sizeof(unsigned char), size, in)) {
@@ -116,22 +119,28 @@ int drawing_thread() {
         return -1;
     }
 
-    struct Window *window[64];
-    int ord[64];
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < WINDOW_MAX_NUM; i++) {
         window[i] = NULL;
-        ord[i] = i;
+        window_ord[i] = i;
     }
+
     window[0] = (struct Window *)malloc(sizeof(struct Window));
     window_new(window[0], &disp, point_new(0, 0), size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
 
-    window[1] = (struct Window *)malloc(sizeof(struct Window));
-    window_new(window[1], &disp, point_new(100, 100), size_new(640, 480), "test window", color_new(0x2D, 0x2D, 0x2D, 255));
+    window[WINDOW_MAX_NUM - 1] = (struct Window *)malloc(sizeof(struct Window));
+    window_new(window[WINDOW_MAX_NUM - 1], &disp, point_new(0, 0), size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
 
-    window[60] = (struct Window *)malloc(sizeof(struct Window));
-    window_new(window[60], &disp, point_new(0, 0), size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
+    struct Window *root_window = window[0];
+    struct Window *overlay_window = window[WINDOW_MAX_NUM - 1];
 
     query_queue = queue_new(sizeof(struct Query));
+
+    // clear window
+    for (int i = 0; i < WINDOW_MAX_NUM; i++) {
+        if (window[i] != NULL) {
+            clear_screen(window[i]);
+        }
+    }
 
     SDL_Event event;
     while (1) {
@@ -144,18 +153,17 @@ int drawing_thread() {
             }
         }
 
-        clear_screen(window[0]);
-        clear_screen(window[1]);
-        clear_screen(window[60]);
+        clear_screen(root_window);
+        clear_screen(overlay_window);
 
         // mouse cursor
         {
             int mouse_x, mouse_y;
             int pushed = SDL_GetMouseState(&mouse_x, &mouse_y);
             if (pushed & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-                draw_rect(window[60], mouse_x, mouse_y, 10, 10, color_new(0, 255, 0, 255));
+                draw_rect(overlay_window, mouse_x, mouse_y, 10, 10, color_new(0, 255, 0, 255));
             } else {
-                draw_rect(window[60], mouse_x, mouse_y, 10, 10, color_new(255, 255, 0, 255));
+                draw_rect(overlay_window, mouse_x, mouse_y, 10, 10, color_new(255, 255, 0, 255));
             }
             disp.curosr_pos = point_new(mouse_x, mouse_y);
         }
@@ -175,8 +183,8 @@ int drawing_thread() {
                 window[1]->pos.y += 10;
             }
             if (state[SDL_SCANCODE_SPACE]) {
-                ord[0] ^= 1;
-                ord[1] ^= 1;
+                window_ord[0] ^= 1;
+                window_ord[1] ^= 1;
             }
         }
 
@@ -200,59 +208,84 @@ int drawing_thread() {
                 }
             }
             printf("drawing --> "); print_query(query);
-            switch (query.op) {
-                case DrawRect:
+            switch (query.type) {
+                case TINYWS_QUERY_DRAW_RECT:
                 {
-                    int x = query.param.draw_rect_param.x;
-                    int y = query.param.draw_rect_param.y;
-                    int w = query.param.draw_rect_param.w;
-                    int h = query.param.draw_rect_param.h;
+                    int x = query.param.draw_rect.x;
+                    int y = query.param.draw_rect.y;
+                    int w = query.param.draw_rect.w;
+                    int h = query.param.draw_rect.h;
                     Color c = color_new(255, 0, 0, 255);
-                    if (draw_rect(window[0], x, y, w, h, c) < 0) {
+                    if (draw_rect(window[1], x, y, w, h, c) < 0) {
                         return -1;
                     }
                     break;
                 }
-                case DrawCircle:
+                case TINYWS_QUERY_DRAW_CIRCLE:
                 {
-                    int x_center = query.param.draw_circle_param.x;
-                    int y_center = query.param.draw_circle_param.y;
-                    int radius = query.param.draw_circle_param.radius;
-                    char filled = query.param.draw_circle_param.filled;
+                    int x_center = query.param.draw_circle.x;
+                    int y_center = query.param.draw_circle.y;
+                    int radius = query.param.draw_circle.radius;
+                    char filled = query.param.draw_circle.filled;
 
                     Color c = color_new(0, 255, 128, 255);
-                    if (draw_circle(window[0], x_center, y_center, radius, filled, c) < 0) {
+                    if (draw_circle(window[1], x_center, y_center, radius, filled, c) < 0) {
                         return -1;
                     }
                     break;
                 }
-                case DrawLine:
+                case TINYWS_QUERY_DRAW_LINE:
                 {
-                    int x1 = query.param.draw_line_param.x1;
-                    int y1 = query.param.draw_line_param.y1;
-                    int x2 = query.param.draw_line_param.x2;
-                    int y2 = query.param.draw_line_param.y2;
+                    int x1 = query.param.draw_line.x1;
+                    int y1 = query.param.draw_line.y1;
+                    int x2 = query.param.draw_line.x2;
+                    int y2 = query.param.draw_line.y2;
                     Color c = color_new(255, 128, 0, 255);
-                    if (draw_line(window[0], x1, y1, x2, y2, c) < 0) {
+                    if (draw_line(window[1], x1, y1, x2, y2, c) < 0) {
                         return -1;
                     }
                     break;
                 }
-                case DrawPixel:
+                case TINYWS_QUERY_DRAW_PIXEL:
                 {
-                    int x = query.param.draw_pixel_param.x;
-                    int y = query.param.draw_pixel_param.y;
+                    int x = query.param.draw_pixel.x;
+                    int y = query.param.draw_pixel.y;
                     Color c = color_new(255, 0, 128, 255);
-                    if (draw_pixel(window[0], x, y, c) < 0) {
+                    if (draw_pixel(window[1], x, y, c) < 0) {
                         return -1;
                     }
                     break;
                 }
-                case ClearScreen:
+                case TINYWS_QUERY_CLEAR_SCREEN:
                 {
-                    clear_screen(window[0]);
+                    clear_screen(window[1]);
                     break;
                 }
+
+                // Window management
+                case TINYWS_QUERY_CREATE_WINDOW:
+                {
+                    window[1] = (struct Window *)malloc(sizeof(struct Window));
+                    window_new(window[1], &disp,
+                            point_new(query.param.create_window.pos_x, query.param.create_window.pos_x),
+                            size_new(query.param.create_window.width, query.param.create_window.height),
+                            "test",
+                            color_new(0x1D, 0x1D, 0x1D, 255));
+                    clear_screen(window[1]);
+                    break;
+                }
+                case TINYWS_QUERY_SET_WINDOW_POS:
+                {
+                    window[1]->pos.x = query.param.set_window_pos.pos_x;
+                    window[1]->pos.y = query.param.set_window_pos.pos_y;
+                    break;
+                }
+                case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
+                {
+                    window[1]->visible ^= query.param.set_window_visibility.visible;
+                    break;
+                }
+                
                 default:
                 {
                     printf("invalid query\n");
@@ -265,9 +298,9 @@ int drawing_thread() {
         SDL_SetRenderDrawColor(disp.ren, 0, 0, 0, 0);
         SDL_SetRenderTarget(disp.ren, NULL);
         SDL_RenderClear(disp.ren);
-        for (int i = 0; i < 64; i++) {
-            if (window[ord[i]] == NULL) continue;
-            window_draw(window[ord[i]], &disp);
+        for (int i = 0; i < WINDOW_MAX_NUM; i++) {
+            if (window[window_ord[i]] == NULL) continue;
+            window_draw(window[window_ord[i]], &disp);
         }
 
         // update screen
