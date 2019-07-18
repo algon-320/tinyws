@@ -14,10 +14,11 @@ Point point_new(int x, int y) {
     return ret;
 }
 
-Color color_new(int r, int g, int b) {
+Color color_new(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     Color ret;
     ret.r = r;
     ret.g = g;
     ret.b = b;
+    ret.a = a;
     return ret;
 }

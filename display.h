@@ -4,13 +4,10 @@
 #include <SDL2/SDL.h>
 
 #include "basic_structures.h"
-#include "window.h"
 
 struct Display {
     SDL_Window *win;
     SDL_Renderer *ren;
-    SDL_Texture *buffer;
-    struct Window *root;
     Point curosr_pos;
     Size size;
 };

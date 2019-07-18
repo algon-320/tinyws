@@ -13,17 +13,18 @@
 #include <pthread.h>
 
 #include "basic_structures.h"
+#include "lib/queue.h"
 #include "tcp.h"
 #include "display.h"
 #include "draw.h"
 #include "query.h"
-#include "lib/queue.h"
+#include "window.h"
 
 // 失敗したら負を返す関数用のエラー処理ラッパー
 #define SDL_CALL_NONNEG(func_name, ...)\
 do {\
     if (func_name(__VA_ARGS__) < 0) {\
-        fprintf(stderr, #func_name " Error: %s\n", SDL_GetError());\
+        fprintf(stderr, __FILE__ ": " #func_name " Error: %s\n", SDL_GetError());\
         return -1;\
     }\
 } while (0)
@@ -107,22 +108,79 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 }
 
 int drawing_thread() {
+    const int DISPLAY_WIDTH  = 1280;
+    const int DISPLAY_HEIGHT = 960;
+    
     struct Display disp;
-    if (display_new(&disp, size_new(1280, 960), "tinyws virtual display") < 0) {
+    if (display_new(&disp, size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "tinyws virtual display") < 0) {
         return -1;
     }
+
+    struct Window *window[64];
+    int ord[64];
+    for (int i = 0; i < 64; i++) {
+        window[i] = NULL;
+        ord[i] = i;
+    }
+    window[0] = (struct Window *)malloc(sizeof(struct Window));
+    window_new(window[0], &disp, point_new(0, 0), size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
+
+    window[1] = (struct Window *)malloc(sizeof(struct Window));
+    window_new(window[1], &disp, point_new(100, 100), size_new(640, 480), "test window", color_new(0x2D, 0x2D, 0x2D, 255));
+
+    window[60] = (struct Window *)malloc(sizeof(struct Window));
+    window_new(window[60], &disp, point_new(0, 0), size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
 
     query_queue = queue_new(sizeof(struct Query));
 
     SDL_Event event;
     while (1) {
         SDL_PollEvent(&event);
-        if (event.type == SDL_QUIT) {
-            exit(1);
-            break;
+        switch (event.type) {
+            case SDL_QUIT:
+            {
+                exit(1);
+                break;
+            }
         }
 
-        if(!queue_empty(&query_queue)) {
+        clear_screen(window[0]);
+        clear_screen(window[1]);
+        clear_screen(window[60]);
+
+        // mouse cursor
+        {
+            int mouse_x, mouse_y;
+            int pushed = SDL_GetMouseState(&mouse_x, &mouse_y);
+            if (pushed & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+                draw_rect(window[60], mouse_x, mouse_y, 10, 10, color_new(0, 255, 0, 255));
+            } else {
+                draw_rect(window[60], mouse_x, mouse_y, 10, 10, color_new(255, 255, 0, 255));
+            }
+            disp.curosr_pos = point_new(mouse_x, mouse_y);
+        }
+
+        {
+            const uint8_t *state = SDL_GetKeyboardState(NULL);
+            if (state[SDL_SCANCODE_LEFT]) {
+                window[1]->pos.x -= 10;
+            }
+            if (state[SDL_SCANCODE_RIGHT]) {
+                window[1]->pos.x += 10;
+            }
+            if (state[SDL_SCANCODE_UP]) {
+                window[1]->pos.y -= 10;
+            }
+            if (state[SDL_SCANCODE_DOWN]) {
+                window[1]->pos.y += 10;
+            }
+            if (state[SDL_SCANCODE_SPACE]) {
+                ord[0] ^= 1;
+                ord[1] ^= 1;
+            }
+        }
+
+        while (!queue_empty(&query_queue)) {
             struct Query query;
             {
                 int r;
@@ -149,8 +207,8 @@ int drawing_thread() {
                     int y = query.param.draw_rect_param.y;
                     int w = query.param.draw_rect_param.w;
                     int h = query.param.draw_rect_param.h;
-                    Color c = color_new(255, 0, 0);
-                    if (draw_rect(&disp, x, y, w, h, c) < 0) {
+                    Color c = color_new(255, 0, 0, 255);
+                    if (draw_rect(window[0], x, y, w, h, c) < 0) {
                         return -1;
                     }
                     break;
@@ -162,8 +220,8 @@ int drawing_thread() {
                     int radius = query.param.draw_circle_param.radius;
                     char filled = query.param.draw_circle_param.filled;
 
-                    Color c = color_new(0, 255, 128);
-                    if (draw_circle(&disp, x_center, y_center, radius, filled, c) < 0) {
+                    Color c = color_new(0, 255, 128, 255);
+                    if (draw_circle(window[0], x_center, y_center, radius, filled, c) < 0) {
                         return -1;
                     }
                     break;
@@ -174,8 +232,8 @@ int drawing_thread() {
                     int y1 = query.param.draw_line_param.y1;
                     int x2 = query.param.draw_line_param.x2;
                     int y2 = query.param.draw_line_param.y2;
-                    Color c = color_new(255, 128, 0);
-                    if (draw_line(&disp, x1, y1, x2, y2, c) < 0) {
+                    Color c = color_new(255, 128, 0, 255);
+                    if (draw_line(window[0], x1, y1, x2, y2, c) < 0) {
                         return -1;
                     }
                     break;
@@ -184,15 +242,15 @@ int drawing_thread() {
                 {
                     int x = query.param.draw_pixel_param.x;
                     int y = query.param.draw_pixel_param.y;
-                    Color c = color_new(255, 0, 128);
-                    if (draw_pixel(&disp, x, y, c) < 0) {
+                    Color c = color_new(255, 0, 128, 255);
+                    if (draw_pixel(window[0], x, y, c) < 0) {
                         return -1;
                     }
                     break;
                 }
                 case ClearScreen:
                 {
-                    clear_screen(&disp, color_new(0, 0, 0));
+                    clear_screen(window[0]);
                     break;
                 }
                 default:
@@ -201,11 +259,19 @@ int drawing_thread() {
                     break;
                 }
             }
-
-            display_flush(&disp);  // 画面の更新
-
             printf("draw ok\n");
         }
+
+        SDL_SetRenderDrawColor(disp.ren, 0, 0, 0, 0);
+        SDL_SetRenderTarget(disp.ren, NULL);
+        SDL_RenderClear(disp.ren);
+        for (int i = 0; i < 64; i++) {
+            if (window[ord[i]] == NULL) continue;
+            window_draw(window[ord[i]], &disp);
+        }
+
+        // update screen
+        display_flush(&disp);
     }
 
     display_release(&disp);
