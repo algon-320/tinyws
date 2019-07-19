@@ -1,8 +1,11 @@
-test.out: test.c deque.o
-	gcc test.c deque.o -o test.out
+test.out: test.c deque.o linked_list.o
+	gcc $^ -o $@
 
 deque.o: ../deque.c
-	gcc -c ../deque.c -o deque.o
+	gcc -c $^ -o $@
+
+linked_list.o: ../linked_list.c
+	gcc -c $^ -o $@
 
 clean:
 	rm *.out *.o
