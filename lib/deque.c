@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -22,6 +23,10 @@ Deque deque_new_with_capacity(size_t num, size_t elem_size_byte, size_t capacity
     assert(capacity > 0);
     Deque deq;
     deq.data = calloc(capacity, elem_size_byte);
+    if (deq.data == NULL) {
+        fprintf(stderr, "Deque: allocation error\n");
+        exit(1);
+    }
     deq.elem_size_byte = elem_size_byte;
     deq.capacity = capacity;
     deq.front_idx = 0;
@@ -43,6 +48,10 @@ void *deque_at(Deque *deq, size_t idx) {
     } else {
         return deq->data + (deq->front_idx + idx) * (deq->elem_size_byte);
     }
+}
+
+void deque_set(Deque *deq, size_t idx, void *ptr_to_value) {
+    memcpy(deque_at(deq, idx), ptr_to_value, deq->elem_size_byte);
 }
 
 void *deque_front(Deque *deq) {
@@ -96,11 +105,15 @@ void deque_push_back(Deque *deq, void *elem) {
         assert((deq->end_idx + 1) % deq->capacity == deq->front_idx);
 
         void *new_ptr = calloc(deq->capacity * 2, deq->elem_size_byte);
+        if (new_ptr == NULL) {
+            fprintf(stderr, "Deque: allocation error\n");
+            exit(1);
+        }
         move_to_other(deq, new_ptr);
         deq->capacity = deq->capacity * 2;
     }
 
-    memcpy(deque_at(deq, deque_size(deq)), elem, deq->elem_size_byte);
+    if (elem) memcpy(deque_at(deq, deque_size(deq)), elem, deq->elem_size_byte);
     if (deq->end_idx == deq->capacity - 1) {
         deq->end_idx = 0;
     } else {
@@ -123,6 +136,10 @@ void deque_push_front(Deque *deq, void *elem) {
         assert((deq->end_idx + 1) % deq->capacity == deq->front_idx);
 
         void *new_ptr = calloc(deq->capacity * 2, deq->elem_size_byte);
+        if (new_ptr == NULL) {
+            fprintf(stderr, "Deque: allocation error\n");
+            exit(1);
+        }
         move_to_other(deq, new_ptr);
         deq->capacity = deq->capacity * 2;
     }
@@ -132,7 +149,7 @@ void deque_push_front(Deque *deq, void *elem) {
     } else {
         deq->front_idx -= 1;
     }
-    memcpy(deque_at(deq, 0), elem, deq->elem_size_byte);
+    if (elem) memcpy(deque_at(deq, 0), elem, deq->elem_size_byte);
 }
 
 void deque_pop_front(Deque *deq) {
@@ -144,3 +161,5 @@ void deque_pop_front(Deque *deq) {
         deq->front_idx += 1;
     }
 }
+
+// TODO erase and then shift

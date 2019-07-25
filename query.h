@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "query.h"
 
 typedef enum {
     // drawing
@@ -12,6 +11,7 @@ typedef enum {
     TINYWS_QUERY_DRAW_LINE,
     TINYWS_QUERY_DRAW_PIXEL,
     TINYWS_QUERY_CLEAR_SCREEN,
+    TINYWS_QUERY_REFRESH,
 
     // window management
     TINYWS_QUERY_CREATE_WINDOW,
@@ -52,18 +52,9 @@ struct Query {
     } param;
 };
 
-enum ResponseStatus {
-    TINYWS_RESPONSE_OK,
-    TINYWS_RESPONSE_ERR,
-};
+void print_query(const struct Query *query);
 
-struct Response {
-    enum ResponseStatus status;
-};
-
-void print_query(struct Query query);
-
-int encode_query(struct Query query, unsigned char *out, size_t size);
-struct Query decode_query(const unsigned char *buf, size_t size);
+size_t encode_query(const struct Query *query, uint8_t *out, size_t size);
+struct Query decode_query(const uint8_t *buf, size_t size);
 
 #endif

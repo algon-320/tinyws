@@ -12,7 +12,8 @@
 #define PORTNO_BUFSIZE (30)
 
 int tcp_acc_port(int portno, int ip_version) {
-    struct addrinfo hints, *ai;
+    struct addrinfo hints;
+    struct addrinfo *ai;
     char portno_str[PORTNO_BUFSIZE];
     int err, s, on, pf;
 

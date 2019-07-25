@@ -2,43 +2,96 @@
 
 #include "window.h"
 #include "draw.h"
+#include "lib/deque.h"
+#include "lib/stack.h"
 
-static int next_window_id = 0;
+Deque windows;        // <struct Window>
+Stack free_win;       // <struct Window *>
+Deque window_z_ord;   // <struct Window *>
 
-int window_new(struct Window *win, struct Display *disp, Point pos, Size size, const char *title, Color bg_color) {
-    struct Window ret;
-    ret.id = next_window_id++;
-    ret.ren = disp->ren;
-    ret.buffer = SDL_CreateTexture(ret.ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, size.width, size.height);
-    if (ret.buffer == NULL) {
-        SDL_DestroyRenderer(ret.ren);
+void expand_windows(size_t num) {
+    int cur_len = deque_size(&windows);
+    for (int idx = cur_len + num - 1; idx >= cur_len; idx--) {
+        deque_push_back(&windows, NULL);
+    }
+    for (int idx = cur_len + num - 1; idx >= cur_len; idx--) {
+        struct Window *win = deque_at(&windows, idx);
+        win->id = idx;
+        stack_push(&free_win, &win);
+    }
+}
+
+
+void window_subsystem_init() {
+    const int INITIAL_WINDOW_ALLOC_NUM = 16;
+    windows = deque_new_with_capacity(0, sizeof(struct Window), INITIAL_WINDOW_ALLOC_NUM);
+    free_win = stack_new(sizeof(struct Window *));
+    window_z_ord = deque_new_with_capacity(0, sizeof(struct Window *), INITIAL_WINDOW_ALLOC_NUM);
+
+    expand_windows(INITIAL_WINDOW_ALLOC_NUM);
+}
+
+struct Window *window_new(struct Window *parent, struct Display *disp, Point pos, Size size, const char *title, Color bg_color) {
+    if (stack_empty(&free_win)) {
+        size_t expand_len = deque_size(&windows);
+        expand_windows(expand_len);
+    }
+
+    struct Window *win = DEQUE_TAKE(stack_top(&free_win), struct Window *);
+    stack_pop(&free_win);
+
+    win->parent = parent;
+    if (parent) {
+        deque_push_back(&parent->children, &win);
+    }
+
+    win->buffer = SDL_CreateTexture(disp->ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, size.width, size.height);
+    if (win->buffer == NULL) {
         fprintf(stderr, "Window: SDL_CreateTexture Error: %s\n", SDL_GetError());
-        return -1;
+        return NULL;
     }
-    if (SDL_SetTextureBlendMode(ret.buffer, SDL_BLENDMODE_BLEND) < 0) {
-        SDL_DestroyRenderer(ret.ren);
-        SDL_DestroyTexture(ret.buffer);
+    if (SDL_SetTextureBlendMode(win->buffer, SDL_BLENDMODE_BLEND) < 0) {
+        SDL_DestroyTexture(win->buffer);
         fprintf(stderr, "Window: SDL_SetTextureBlendMode Error: %s\n", SDL_GetError());
-        return -1;
+        return NULL;
     }
 
-    ret.pos = pos;
-    ret.size = size;
-    ret.background_color = bg_color;
-    ret.visible = 1;
-    strncpy(ret.tilte, title, 256);
-    ret.children = NULL;
-    ret.children_size = 0;
-    *win = ret;
-    return 0;
+    win->pos = pos;
+    win->size = size;
+    win->background_color = bg_color;
+    win->visible = 1;
+    strncpy(win->title, title, sizeof(win->title));
+    win->children = deque_new_with_capacity(0, sizeof(struct Window *), 4);
+    win->disp = disp;
+
+    clear_screen(win);
+
+    if (!win->parent || win->parent->id == 0) {
+        deque_push_back(&window_z_ord, &win);
+    }
+    return win;
 }
 
 int window_release(struct Window *win) {
-    for (size_t i = 0; i < win->children_size; i++) {
-        window_release(win->children[i]);
-        win->children[i] = NULL;
+    while (deque_size(&win->children)) {
+        struct Window *ptr = DEQUE_TAKE(deque_back(&win->children), struct Window *);
+        window_release(ptr);
+        deque_pop_back(&win->children);
     }
+
+    if (!win->parent || win->parent->id == 0) {
+        // TODO: erase
+        deque_push_back(&window_z_ord, &win);
+    }
+
     SDL_DestroyTexture(win->buffer);
+
+    win->parent =NULL;
+    win->buffer = NULL;
+    win->disp = NULL;
+    deque_free(&win->children);
+
+    stack_push(&free_win, &win);
     return 0;
 }
 
@@ -48,31 +101,45 @@ int window_draw(struct Window *win, struct Display *disp) {
     }
 
     SDL_Rect rect;
-    rect.x = win->pos.x;
-    rect.y = win->pos.y;
-    rect.w = win->size.width;
-    rect.h = win->size.height;
 
     if (SDL_SetRenderTarget(disp->ren, NULL) < 0) {
         fprintf(stderr, "Window: SDL_SetRenderTarget Error: %s\n", SDL_GetError());
         return -1;
     }
 
+    if (SDL_SetRenderDrawColor(disp->ren, 0, 255, 255, 255) < 0) {
+        fprintf(stderr, "Window: SDL_SetRenderDrawColor Error: %s\n", SDL_GetError());
+        return -1;
+    }
+
+    struct Window *p = win->parent;
+    rect.x = win->pos.x;
+    rect.y = win->pos.y;
+    if (p) {
+        rect.x += p->pos.x;
+        rect.y += p->pos.y;
+    }
+    rect.w = win->size.width;
+    rect.h = win->size.height;
+
     if (SDL_RenderCopy(disp->ren, win->buffer, NULL, &rect) < 0) {
         fprintf(stderr, "Window: SDL_RenderCopy Error: %s\n", SDL_GetError());
         return -1;
     }
-    if (SDL_SetRenderDrawColor(disp->ren, 255, 255, 255, 255) < 0) {
-        fprintf(stderr, "Window: SDL_SetRenderDrawColor Error: %s\n", SDL_GetError());
-        return -1;
-    }
-    rect.x -= 1;
-    rect.y -= 1;
-    rect.w += 2;
-    rect.h += 2;
-    if (SDL_RenderDrawRect(disp->ren, &rect) < 0) {
-        fprintf(stderr, "Window: SDL_RenderDrawRect Error: %s\n", SDL_GetError());
-        return -1;
+    
+    // draw recursively
+    for (size_t i = 0, sz = deque_size(&win->children); i < sz; i++) {
+        window_draw(DEQUE_TAKE(&win->children, struct Window *), disp);
     }
     return 0;
+}
+
+struct Window *window_get_by_id(uint32_t win_id) {
+    if (win_id < deque_size(&windows)) {
+        struct Window *win = deque_at(&windows, win_id);
+        if (win->disp) {
+            return win;
+        }
+    }
+    return NULL;
 }

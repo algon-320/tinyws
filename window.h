@@ -3,26 +3,34 @@
 
 #include <SDL2/SDL.h>
 
+#include "lib/deque.h"
 #include "basic_structures.h"
 #include "display.h"
 
+
 struct Window {
-    int id;
+    struct Window *parent;
+    uint32_t id;
     Point pos;
     Size size;
     uint8_t visible;
-    char tilte[256];
-    size_t children_size;
+    char title[256];
     Color background_color;
-    struct Window **children;
+    Deque children;  // <struct Window *>
     SDL_Texture *buffer;
-    SDL_Renderer *ren;
+    struct Display *disp;
 };
 
-int window_new(struct Window *win, struct Display *disp, Point pos, Size size, const char *title, Color bg_color);
+extern Deque window_z_ord; // <struct Window *>
+
+void window_subsystem_init();
+
+struct Window *window_new(struct Window *parent, struct Display *disp, Point pos, Size size, const char *title, Color bg_color);
 
 int window_release(struct Window *win);
 
 int window_draw(struct Window *win, struct Display *disp);
+
+struct Window *window_get_by_id(uint32_t win_id);
 
 #endif

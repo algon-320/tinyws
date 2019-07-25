@@ -10,6 +10,7 @@
 
 #include "tcp.h"
 #include "query.h"
+#include "response.h"
 
 #define BUFFERSIZE 1024
 
@@ -21,7 +22,7 @@ int main(int argc, char *argv[]) {
 
     char server[] = "localhost";
     int portno = strtol(argv[1], NULL, 10);
-    unsigned char message[1024];
+    uint8_t message[BUFFERSIZE * 2], response_buf[BUFFERSIZE * 2];
     memset(message, 0, sizeof(message));
 
     struct Query query;
@@ -74,20 +75,19 @@ int main(int argc, char *argv[]) {
         query.param.set_window_visibility.visible = 1;
     }
 
-    if (encode_query(query, message, 1024) < 0) {
+    size_t bytes = encode_query(&query, message, BUFFERSIZE);
+    if (bytes == 0) {
         fprintf(stderr, "buffer too small\n");
         return 1;
     }
     printf("message: [");
-    for (int i = 0; i < 20; i++) {
-        printf("%d ", (unsigned char)message[i]);
+    for (int i = 0; i < bytes; i++) {
+        printf("%d ", (uint8_t)message[i]);
     }
     printf("]\n");
 
     int ret_code = 0;
     FILE *in, *out;
-    char rbuf[BUFFERSIZE];
-    int res;
 
     int sock = tcp_connect(server, portno);
     if (sock < 0) {
@@ -100,21 +100,20 @@ int main(int argc, char *argv[]) {
     }
 
     // send request
-    res = fwrite(message, sizeof(unsigned char), 1024, out);
-    // res = fprintf(out, "%s", message);
-    if (res < 0) {
+    if (fwrite(message, sizeof(uint8_t), BUFFERSIZE, out) == 0) {
         fprintf(stderr, "fwrite()\n");
         ret_code = 1;
         goto CLOSE_FP;
     }
     
     // receive responce
-    if (fgets(rbuf, BUFFERSIZE, in) == NULL) {
+    if (fread(response_buf, sizeof(uint8_t), BUFFERSIZE, in) == 0 && ferror(in)) {
         fprintf(stderr, "fprintf()\n");
         ret_code = 1;
         goto CLOSE_FP;
     }
-    printf("%s", rbuf);
+    struct Response resp = decode_response(response_buf, BUFFERSIZE);
+    print_response(&resp);
 
     // memset(message, 0, sizeof(message));
     // query.type = TINYWS_QUERY_DRAW_RECT;
@@ -128,12 +127,12 @@ int main(int argc, char *argv[]) {
     // }
     // printf("message: [");
     // for (int i = 0; i < 20; i++) {
-    //     printf("%d ", (unsigned char)message[i]);
+    //     printf("%d ", (uint8_t)message[i]);
     // }
     // printf("]\n");
 
     // // send request
-    // res = fwrite(message, sizeof(unsigned char), 1024, out);
+    // res = fwrite(message, sizeof(uint8_t), 1024, out);
     // // res = fprintf(out, "%s", message);
     // if (res < 0) {
     //     fprintf(stderr, "fwrite()\n");

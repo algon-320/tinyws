@@ -14,8 +14,8 @@ do {\
 
 
 int draw_rect(struct Window *win, int x, int y, int w, int h, Color color) {   
-    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->ren, win->buffer);
-    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, win->ren, color.r, color.g, color.b, color.a);
+    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->disp->ren, win->buffer);
+    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, win->disp->ren, color.r, color.g, color.b, color.a);
 
     SDL_Rect rect;
     rect.x = x;
@@ -23,26 +23,26 @@ int draw_rect(struct Window *win, int x, int y, int w, int h, Color color) {
     rect.w = w;
     rect.h = h;
     
-    SDL_CALL_NONNEG(SDL_RenderFillRect, win->ren, &rect);
+    SDL_CALL_NONNEG(SDL_RenderFillRect, win->disp->ren, &rect);
     return 0;
 }
 
 int draw_line(struct Window *win, int x1, int y1, int x2, int y2, Color color) {
-    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->ren, win->buffer);
-    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, win->ren, color.r, color.g, color.b, color.a);
-    SDL_CALL_NONNEG(SDL_RenderDrawLine, win->ren, x1, y1, x2, y2);
+    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->disp->ren, win->buffer);
+    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, win->disp->ren, color.r, color.g, color.b, color.a);
+    SDL_CALL_NONNEG(SDL_RenderDrawLine, win->disp->ren, x1, y1, x2, y2);
     return 0;
 }
 
 int draw_pixel(struct Window *win, int x, int y, Color color) {
-    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->ren, win->buffer);
-    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, win->ren, color.r, color.g, color.b, color.a);
-    SDL_CALL_NONNEG(SDL_RenderDrawPoint, win->ren, x, y);
+    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->disp->ren, win->buffer);
+    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, win->disp->ren, color.r, color.g, color.b, color.a);
+    SDL_CALL_NONNEG(SDL_RenderDrawPoint, win->disp->ren, x, y);
     return 0;
 }
 
-int draw_circle(struct Window *win, int x_center, int y_center, int radius, char filled, Color color) {
-    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->ren, win->buffer);
+int draw_circle(struct Window *win, int x_center, int y_center, int radius, uint8_t filled, Color color) {
+    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->disp->ren, win->buffer);
     if (filled) {
         // filled
         for (int y = -radius - 1; y < radius + 1; ++y) {
@@ -93,13 +93,13 @@ int draw_circle(struct Window *win, int x_center, int y_center, int radius, char
 }
 
 int clear_screen(struct Window *win) {
-    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->ren, win->buffer);
-    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, win->ren,
+    SDL_CALL_NONNEG(SDL_SetRenderTarget, win->disp->ren, win->buffer);
+    SDL_CALL_NONNEG(SDL_SetRenderDrawColor, win->disp->ren,
             win->background_color.r,
             win->background_color.g,
             win->background_color.b,
             win->background_color.a
     );
-    SDL_RenderClear(win->ren);
+    SDL_RenderClear(win->disp->ren);
     return 0;
 }
