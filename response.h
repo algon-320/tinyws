@@ -19,9 +19,9 @@ struct Response {
     } content;
 };
 
-void print_response(const struct Response *resp);
+void response_print(const struct Response *resp);
 
-size_t encode_response(const struct Response *resp, uint8_t *out, size_t size);
-struct Response decode_response(const uint8_t *buf, size_t size);
+size_t response_encode(const struct Response *resp, uint8_t *out, size_t size);
+struct Response response_decode(const uint8_t *buf, size_t size);
 
 #endif

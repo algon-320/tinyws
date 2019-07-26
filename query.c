@@ -3,7 +3,7 @@
 
 #include "query.h"
 
-void print_query(const struct Query *query) {
+void query_print(const struct Query *query) {
     switch (query->type) {
         case TINYWS_QUERY_DRAW_RECT:
             printf("TINYWS_QUERY_DRAW_RECT(x=%d, y=%d, w=%d, h=%d)\n",
@@ -78,7 +78,7 @@ void print_query(const struct Query *query) {
         dst += sizeof(value);\
     } while (0)
 
-size_t encode_query(const struct Query *query, uint8_t *out, size_t size) {
+size_t query_encode(const struct Query *query, uint8_t *out, size_t size) {
     
     uint8_t *nxt = out;
     WRITE_INT_LE((int32_t)query->type, nxt);
@@ -168,7 +168,7 @@ size_t encode_query(const struct Query *query, uint8_t *out, size_t size) {
         src += sizeof(*dst);\
     } while (0)
 
-struct Query decode_query(const uint8_t *buf, size_t size) {
+struct Query query_decode(const uint8_t *buf, size_t size) {
     struct Query ret;
     
     {

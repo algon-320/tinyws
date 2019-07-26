@@ -3,7 +3,7 @@
 
 #include "response.h"
 
-void print_response(const struct Response *resp) {
+void response_print(const struct Response *resp) {
     if (resp->success) {
         printf("response [success], ");
     } else {
@@ -34,7 +34,7 @@ void print_response(const struct Response *resp) {
         dst += sizeof(value);\
     } while (0)
 
-size_t encode_response(const struct Response *resp, uint8_t *out, size_t size) {
+size_t response_encode(const struct Response *resp, uint8_t *out, size_t size) {
     assert(size > 0);
 
     uint8_t *nxt = out;
@@ -65,7 +65,7 @@ size_t encode_response(const struct Response *resp, uint8_t *out, size_t size) {
         src += sizeof(*dst);\
     } while (0)
 
-struct Response decode_response(const uint8_t *buf, size_t size) {
+struct Response response_decode(const uint8_t *buf, size_t size) {
     struct Response ret;
     
     READ_INT_LE(buf, &ret.success);

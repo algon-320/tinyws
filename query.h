@@ -52,9 +52,9 @@ struct Query {
     } param;
 };
 
-void print_query(const struct Query *query);
+void query_print(const struct Query *query);
 
-size_t encode_query(const struct Query *query, uint8_t *out, size_t size);
-struct Query decode_query(const uint8_t *buf, size_t size);
+size_t query_encode(const struct Query *query, uint8_t *out, size_t size);
+struct Query query_decode(const uint8_t *buf, size_t size);
 
 #endif

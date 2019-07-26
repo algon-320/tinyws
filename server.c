@@ -88,8 +88,8 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         printf("]\n");
         fflush(stdout);
 
-        struct Query query = decode_query(buf, BUFFSIZE);
-        print_query(&query);
+        struct Query query = query_decode(buf, BUFFSIZE);
+        query_print(&query);
 
         struct Response resp;
         resp.success = 1;
@@ -154,7 +154,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             }
         }
 
-        size_t bytes = encode_response(&resp, response_buf, BUFFSIZE);
+        size_t bytes = response_encode(&resp, response_buf, BUFFSIZE);
         fwrite(response_buf, sizeof(uint8_t), BUFFSIZE, out);
     }
 
@@ -264,7 +264,7 @@ int drawing_thread() {
             disp.curosr_pos = point_new(mouse_x, mouse_y);
         }
 
-        printf("drawing --> "); print_query(&query);
+        printf("drawing --> "); query_print(&query);
 
         if (deque_size(&root_win->children)) {
             struct Window *win = DEQUE_TAKE(deque_at(&root_win->children, 0), struct Window *);

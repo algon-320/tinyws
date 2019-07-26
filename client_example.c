@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         query.param.set_window_visibility.visible = 1;
     }
 
-    size_t bytes = encode_query(&query, message, BUFFERSIZE);
+    size_t bytes = query_encode(&query, message, BUFFERSIZE);
     if (bytes == 0) {
         fprintf(stderr, "buffer too small\n");
         return 1;
@@ -112,8 +112,8 @@ int main(int argc, char *argv[]) {
         ret_code = 1;
         goto CLOSE_FP;
     }
-    struct Response resp = decode_response(response_buf, BUFFERSIZE);
-    print_response(&resp);
+    struct Response resp = response_decode(response_buf, BUFFERSIZE);
+    response_print(&resp);
 
     // memset(message, 0, sizeof(message));
     // query.type = TINYWS_QUERY_DRAW_RECT;
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
     // query.param.draw_rect.y = 700;
     // query.param.draw_rect.w = 100;
     // query.param.draw_rect.h = 100;
-    // if (encode_query(query, message, 1024) < 0) {
+    // if (query_encode(query, message, 1024) < 0) {
     //     fprintf(stderr, "buffer too small\n");
     //     TINYWS_QUERY_DRAW_CIRCLE 1;
     // }
