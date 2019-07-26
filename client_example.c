@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <assert.h>
 
+#include "basic_structures.h"
 #include "tcp.h"
 #include "query.h"
 #include "response.h"
@@ -26,12 +27,14 @@ int main(int argc, char *argv[]) {
     memset(message, 0, sizeof(message));
 
     struct Query query;
+    query.target_window_id = 2;
     if (argv[2][0] == '0') {
         query.type = TINYWS_QUERY_DRAW_RECT;
         query.param.draw_rect.x = 200;
         query.param.draw_rect.y = 200;
         query.param.draw_rect.w = 50;
         query.param.draw_rect.h = 50;
+        query.param.draw_rect.color = color_new(255, 0, 0, 255);
     }
     if (argv[2][0] == '1') {
         query.type = TINYWS_QUERY_DRAW_CIRCLE;
@@ -39,6 +42,7 @@ int main(int argc, char *argv[]) {
         query.param.draw_circle.y = 200;
         query.param.draw_circle.radius = 100;
         query.param.draw_circle.filled = 0;
+        query.param.draw_circle.color = color_new(255, 255, 0, 255);
     }
     if (argv[2][0] == '2') {
         query.type = TINYWS_QUERY_DRAW_LINE;
@@ -46,14 +50,16 @@ int main(int argc, char *argv[]) {
         query.param.draw_line.y1 = 200;
         query.param.draw_line.x2 = 250;
         query.param.draw_line.y2 = 400;
+        query.param.draw_line.color = color_new(255, 0, 255, 255);
     }
     if (argv[2][0] == '3') {
         query.type = TINYWS_QUERY_DRAW_PIXEL;
         query.param.draw_pixel.x = 10;
         query.param.draw_pixel.y = 10;
+        query.param.draw_pixel.color = color_new(0, 255, 255, 255);
     }
     if (argv[2][0] == '4') {
-        query.type = TINYWS_QUERY_CLEAR_SCREEN;
+        query.type = TINYWS_QUERY_CLEAR_WINDOW;
     }
     if (argv[2][0] == '5') {
         query.type = TINYWS_QUERY_CREATE_WINDOW;
@@ -62,12 +68,16 @@ int main(int argc, char *argv[]) {
         query.param.create_window.height = 480;
         query.param.create_window.pos_x = 100;
         query.param.create_window.pos_y = 100;
+        query.param.create_window.bg_color = color_new(0x1D, 0x1D, 0x1D, 255);
     }
     if (argv[2][0] == '6') {
-        query.type = TINYWS_QUERY_SET_WINDOW_POS;
-        query.param.set_window_pos.window_id = 0;
-        query.param.set_window_pos.pos_x = 123;
-        query.param.set_window_pos.pos_y = 456;
+        query.type = TINYWS_QUERY_CREATE_WINDOW;
+        query.param.create_window.parent_window_id = 2;
+        query.param.create_window.width = 50;
+        query.param.create_window.height = 50;
+        query.param.create_window.pos_x = 10;
+        query.param.create_window.pos_y = 10;
+        query.param.create_window.bg_color = color_new(0xFD, 0xFD, 0xFD, 255);
     }
     if (argv[2][0] == '7') {
         query.type = TINYWS_QUERY_SET_WINDOW_VISIBILITY;
@@ -114,39 +124,6 @@ int main(int argc, char *argv[]) {
     }
     struct Response resp = response_decode(response_buf, BUFFERSIZE);
     response_print(&resp);
-
-    // memset(message, 0, sizeof(message));
-    // query.type = TINYWS_QUERY_DRAW_RECT;
-    // query.param.draw_rect.x = 700;
-    // query.param.draw_rect.y = 700;
-    // query.param.draw_rect.w = 100;
-    // query.param.draw_rect.h = 100;
-    // if (query_encode(query, message, 1024) < 0) {
-    //     fprintf(stderr, "buffer too small\n");
-    //     TINYWS_QUERY_DRAW_CIRCLE 1;
-    // }
-    // printf("message: [");
-    // for (int i = 0; i < 20; i++) {
-    //     printf("%d ", (uint8_t)message[i]);
-    // }
-    // printf("]\n");
-
-    // // send request
-    // res = fwrite(message, sizeof(uint8_t), 1024, out);
-    // // res = fprintf(out, "%s", message);
-    // if (res < 0) {
-    //     fprintf(stderr, "fwrite()\n");
-    //     ret_code = 1;
-    //     goto CLOSE_FP;
-    // }
-    
-    // // receive responce
-    // if (fgets(rbuf, BUFFERSIZE, in) == NULL) {
-    //     fprintf(stderr, "fprintf()\n");
-    //     ret_code = 1;
-    //     goto CLOSE_FP;
-    // }
-    // printf("%s", rbuf);
 
 CLOSE_FP:
     fclose(in);

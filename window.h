@@ -7,7 +7,6 @@
 #include "basic_structures.h"
 #include "display.h"
 
-
 struct Window {
     struct Window *parent;
     uint32_t id;
@@ -19,9 +18,9 @@ struct Window {
     Deque children;  // <struct Window *>
     SDL_Texture *buffer;
     struct Display *disp;
+    struct Window *z_ord_prev;
+    struct Window *z_ord_next;
 };
-
-extern Deque window_z_ord; // <struct Window *>
 
 void window_subsystem_init();
 

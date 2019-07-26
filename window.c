@@ -7,7 +7,6 @@
 
 Deque windows;        // <struct Window>
 Stack free_win;       // <struct Window *>
-Deque window_z_ord;   // <struct Window *>
 
 void expand_windows(size_t num) {
     int cur_len = deque_size(&windows);
@@ -23,10 +22,9 @@ void expand_windows(size_t num) {
 
 
 void window_subsystem_init() {
-    const int INITIAL_WINDOW_ALLOC_NUM = 16;
+    static const int INITIAL_WINDOW_ALLOC_NUM = 16;
     windows = deque_new_with_capacity(0, sizeof(struct Window), INITIAL_WINDOW_ALLOC_NUM);
     free_win = stack_new(sizeof(struct Window *));
-    window_z_ord = deque_new_with_capacity(0, sizeof(struct Window *), INITIAL_WINDOW_ALLOC_NUM);
 
     expand_windows(INITIAL_WINDOW_ALLOC_NUM);
 }
@@ -66,8 +64,15 @@ struct Window *window_new(struct Window *parent, struct Display *disp, Point pos
 
     clear_screen(win);
 
-    if (!win->parent || win->parent->id == 0) {
-        deque_push_back(&window_z_ord, &win);
+    if (win->parent) {
+        struct Window *ptr = win->parent;
+        while (ptr->z_ord_next) ptr = ptr->z_ord_next;
+        ptr->z_ord_next = win;
+        win->z_ord_next = NULL;
+        win->z_ord_prev = ptr;
+    } else {
+        win->z_ord_next = NULL;
+        win->z_ord_prev = NULL;
     }
     return win;
 }
@@ -79,10 +84,14 @@ int window_release(struct Window *win) {
         deque_pop_back(&win->children);
     }
 
-    if (!win->parent || win->parent->id == 0) {
-        // TODO: erase
-        deque_push_back(&window_z_ord, &win);
+    if (win->parent) {
+        struct Window *prev = win->z_ord_prev;
+        struct Window *next = win->z_ord_next;
+        if (prev) prev->z_ord_next = next;
+        if (next) next->z_ord_prev = prev;
     }
+    win->z_ord_next = NULL;
+    win->z_ord_prev = NULL;
 
     SDL_DestroyTexture(win->buffer);
 

@@ -27,6 +27,6 @@ tcp.o: tcp.c
 window.o: window.c
 	$(CC) $(CFLAGS) -c $^ -o $@ 
 
-CLIENT_REQUIRE_OBJS = query.o response.o tcp.o
+CLIENT_REQUIRE_OBJS = query.o response.o tcp.o basic_structures.o
 client_example.out: client_example.c $(CLIENT_REQUIRE_OBJS)
 	$(CC) client_example.c $(CLIENT_REQUIRE_OBJS) -o client_example.out $(CFLAGS) `sdl2-config --cflags --libs`

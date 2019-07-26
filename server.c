@@ -108,10 +108,32 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 struct Window *win = window_new(parent_win, &disp, 
                         point_new(query.param.create_window.pos_x, query.param.create_window.pos_x),
                         size_new(query.param.create_window.width, query.param.create_window.height),
-                        "test window", color_new(0x1D, 0x1D, 0x1D, 0xFF)
+                        "test window",
+                        query.param.create_window.bg_color
                         );
                 resp.type = TINYWS_RESPONSE_WINDOW_ID;
                 resp.content.window_id.id = win->id;
+
+                // 再描画
+                {
+                    int r;
+                    r = pthread_mutex_lock(&mutex);
+                    if (r != 0) {
+                        fprintf(stderr, "can not lock\n");
+                        break;
+                    }
+                    {
+                        struct Query query;
+                        query.type = TINYWS_QUERY_REFRESH;
+                        queue_push(&query_queue, &query);
+                        pthread_cond_signal(&cond);
+                    }
+                    r = pthread_mutex_unlock(&mutex);
+                    if (r != 0) {
+                        fprintf(stderr, "can not lock\n");
+                        break;
+                    }
+                }
                 break;
             }
             case TINYWS_QUERY_SET_WINDOW_POS:
@@ -129,7 +151,12 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             case TINYWS_QUERY_DRAW_CIRCLE:
             case TINYWS_QUERY_DRAW_LINE:
             case TINYWS_QUERY_DRAW_PIXEL:
+            case TINYWS_QUERY_CLEAR_WINDOW:
             {
+                if (window_get_by_id(query.target_window_id) == NULL) {
+                    resp.success = 0;
+                    break;
+                }
                 int r;
                 r = pthread_mutex_lock(&mutex);
                 if (r != 0) {
@@ -266,68 +293,65 @@ int drawing_thread() {
 
         printf("drawing --> "); query_print(&query);
 
-        if (deque_size(&root_win->children)) {
-            struct Window *win = DEQUE_TAKE(deque_at(&root_win->children, 0), struct Window *);
-
-            switch (query.type) {
-                case TINYWS_QUERY_DRAW_RECT:
-                {
-                    int x = query.param.draw_rect.x;
-                    int y = query.param.draw_rect.y;
-                    int w = query.param.draw_rect.w;
-                    int h = query.param.draw_rect.h;
-                    Color c = color_new(255, 0, 0, 255);
-                    if (draw_rect(win, x, y, w, h, c) < 0) {
-                        return -1;
-                    }
-                    break;
+        struct Window *target_win = window_get_by_id(query.target_window_id);
+        assert(target_win);
+        switch (query.type) {
+            case TINYWS_QUERY_DRAW_RECT:
+            {
+                int x = query.param.draw_rect.x;
+                int y = query.param.draw_rect.y;
+                int w = query.param.draw_rect.w;
+                int h = query.param.draw_rect.h;
+                Color c = query.param.draw_rect.color;
+                if (draw_rect(target_win, x, y, w, h, c) < 0) {
+                    return -1;
                 }
-                case TINYWS_QUERY_DRAW_CIRCLE:
-                {
-                    int x_center = query.param.draw_circle.x;
-                    int y_center = query.param.draw_circle.y;
-                    int radius = query.param.draw_circle.radius;
-                    char filled = query.param.draw_circle.filled;
-
-                    Color c = color_new(0, 255, 128, 255);
-                    if (draw_circle(win, x_center, y_center, radius, filled, c) < 0) {
-                        return -1;
-                    }
-                    break;
+                break;
+            }
+            case TINYWS_QUERY_DRAW_CIRCLE:
+            {
+                int x_center = query.param.draw_circle.x;
+                int y_center = query.param.draw_circle.y;
+                int radius = query.param.draw_circle.radius;
+                char filled = query.param.draw_circle.filled;
+                Color c = query.param.draw_circle.color;
+                if (draw_circle(target_win, x_center, y_center, radius, filled, c) < 0) {
+                    return -1;
                 }
-                case TINYWS_QUERY_DRAW_LINE:
-                {
-                    int x1 = query.param.draw_line.x1;
-                    int y1 = query.param.draw_line.y1;
-                    int x2 = query.param.draw_line.x2;
-                    int y2 = query.param.draw_line.y2;
-                    Color c = color_new(255, 128, 0, 255);
-                    if (draw_line(win, x1, y1, x2, y2, c) < 0) {
-                        return -1;
-                    }
-                    break;
+                break;
+            }
+            case TINYWS_QUERY_DRAW_LINE:
+            {
+                int x1 = query.param.draw_line.x1;
+                int y1 = query.param.draw_line.y1;
+                int x2 = query.param.draw_line.x2;
+                int y2 = query.param.draw_line.y2;
+                Color c = query.param.draw_line.color;
+                if (draw_line(target_win, x1, y1, x2, y2, c) < 0) {
+                    return -1;
                 }
-                case TINYWS_QUERY_DRAW_PIXEL:
-                {
-                    int x = query.param.draw_pixel.x;
-                    int y = query.param.draw_pixel.y;
-                    Color c = color_new(255, 0, 128, 255);
-                    if (draw_pixel(win, x, y, c) < 0) {
-                        return -1;
-                    }
-                    break;
+                break;
+            }
+            case TINYWS_QUERY_DRAW_PIXEL:
+            {
+                int x = query.param.draw_pixel.x;
+                int y = query.param.draw_pixel.y;
+                Color c = query.param.draw_pixel.color;
+                if (draw_pixel(target_win, x, y, c) < 0) {
+                    return -1;
                 }
-                case TINYWS_QUERY_CLEAR_SCREEN:
-                {
-                    clear_screen(win);
-                    break;
-                }
-                
-                default:
-                {
-                    printf("invalid query\n");
-                    break;
-                }
+                break;
+            }
+            case TINYWS_QUERY_CLEAR_WINDOW:
+            {
+                clear_screen(target_win);
+                break;
+            }
+            
+            default:
+            {
+                printf("invalid query\n");
+                break;
             }
         }
 
@@ -338,10 +362,12 @@ int drawing_thread() {
         SDL_RenderClear(disp.ren);
         
         // draw windows
-        for (int i = 0, sz = deque_size(&window_z_ord); i < sz; i++) {
-            struct Window *ptr = DEQUE_TAKE(deque_at(&window_z_ord, i), struct Window *);
-            window_draw(ptr, &disp);
+        struct Window *win = root_win;
+        while (win) {
+            window_draw(win, &disp);
+            win = win->z_ord_next;
         }
+        window_draw(overlay_win, &disp);
 
         // update screen
         display_flush(&disp);
