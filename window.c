@@ -146,6 +146,17 @@ int window_draw(struct Window *win, struct Display *disp) {
         rect.w = win->size.width;
         rect.h = win->size.height;
 
+        // draw a frame for the focused window
+        if (focused == win) {
+            SDL_Rect tmp = rect;
+            tmp.x -= 2;
+            tmp.y -= 2;
+            tmp.w += 4;
+            tmp.h += 4;
+            SDL_SetRenderDrawColor(win->disp->ren, 255, 0, 0, 255);
+            SDL_RenderDrawRect(win->disp->ren, &tmp);
+        }
+
         if (SDL_RenderCopy(disp->ren, win->buffer, NULL, &rect) < 0) {
             fprintf(stderr, "Window: SDL_RenderCopy Error: %s\n", SDL_GetError());
             return -1;
