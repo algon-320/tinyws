@@ -23,7 +23,7 @@
 #include "tcp.h"
 #include "display.h"
 #include "draw.h"
-#include "query.h"
+#include "request.h"
 #include "response.h"
 #include "window.h"
 
@@ -31,7 +31,7 @@ struct Display disp;
 struct Window *root_win;
 struct Window *overlay_win;
 
-Queue query_queue;
+Queue request_queue;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
@@ -50,9 +50,9 @@ void refresh_screen() {
         return;
     }
     {
-        struct Query query;
-        query.type = TINYWS_QUERY_REFRESH;
-        queue_push(&query_queue, &query);
+        struct Request request;
+        request.type = TINYWS_REQUEST_REFRESH;
+        queue_push(&request_queue, &request);
         pthread_cond_signal(&cond);
     }
     r = pthread_mutex_unlock(&mutex);
@@ -102,28 +102,28 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         printf("]\n");
         fflush(stdout);
 
-        struct Query query = query_decode(buf, BUFFSIZE);
-        query_print(&query);
+        struct Request request = request_decode(buf, BUFFSIZE);
+        request_print(&request);
 
         struct Response resp;
         resp.success = 1;
         resp.type = TINYWS_RESPONSE_NOCONTENT;
 
-        switch (query.type) {
-            // if it is a window management query, process her
-            case TINYWS_QUERY_CREATE_WINDOW:
+        switch (request.type) {
+            // if it is a window management request, process her
+            case TINYWS_REQUEST_CREATE_WINDOW:
             {
-                struct Window *parent_win = window_get_by_id(query.param.create_window.parent_window_id);
+                struct Window *parent_win = window_get_by_id(request.param.create_window.parent_window_id);
                 if (parent_win == NULL) {
                     resp.success = 0;
                     break;
                 }
 
                 struct Window *win = window_new(parent_win, &disp, 
-                        point_new(query.param.create_window.pos_x, query.param.create_window.pos_x),
-                        size_new(query.param.create_window.width, query.param.create_window.height),
+                        point_new(request.param.create_window.pos_x, request.param.create_window.pos_x),
+                        size_new(request.param.create_window.width, request.param.create_window.height),
                         "test window",
-                        query.param.create_window.bg_color
+                        request.param.create_window.bg_color
                         );
                 resp.type = TINYWS_RESPONSE_WINDOW_ID;
                 resp.content.window_id.id = win->id;
@@ -134,37 +134,37 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
                 break;
             }
-            case TINYWS_QUERY_SET_WINDOW_POS:
+            case TINYWS_REQUEST_SET_WINDOW_POS:
             {
-                struct Window *win = window_get_by_id(query.target_window_id);
+                struct Window *win = window_get_by_id(request.target_window_id);
                 if (win == NULL) {
                     resp.success = 0;
                     break;
                 }
 
-                win->pos.x = query.param.set_window_pos.pos_x;
-                win->pos.y = query.param.set_window_pos.pos_y;
+                win->pos.x = request.param.set_window_pos.pos_x;
+                win->pos.y = request.param.set_window_pos.pos_y;
                 break;
             }
-            case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
+            case TINYWS_REQUEST_SET_WINDOW_VISIBILITY:
             {
-                struct Window *win = window_get_by_id(query.target_window_id);
+                struct Window *win = window_get_by_id(request.target_window_id);
                 if (win == NULL) {
                     resp.success = 0;
                     break;
                 }
-                win->visible = query.param.set_window_visibility.visible;
+                win->visible = request.param.set_window_visibility.visible;
                 break;
             }
 
             // otherwise, send to drawing thread
-            case TINYWS_QUERY_DRAW_RECT:
-            case TINYWS_QUERY_DRAW_CIRCLE:
-            case TINYWS_QUERY_DRAW_LINE:
-            case TINYWS_QUERY_DRAW_PIXEL:
-            case TINYWS_QUERY_CLEAR_WINDOW:
+            case TINYWS_REQUEST_DRAW_RECT:
+            case TINYWS_REQUEST_DRAW_CIRCLE:
+            case TINYWS_REQUEST_DRAW_LINE:
+            case TINYWS_REQUEST_DRAW_PIXEL:
+            case TINYWS_REQUEST_CLEAR_WINDOW:
             {
-                if (window_get_by_id(query.target_window_id) == NULL) {
+                if (window_get_by_id(request.target_window_id) == NULL) {
                     resp.success = 0;
                     break;
                 }
@@ -175,7 +175,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     break;
                 }
                 {
-                    queue_push(&query_queue, &query);
+                    queue_push(&request_queue, &request);
                     pthread_cond_signal(&cond);
                 }
                 r = pthread_mutex_unlock(&mutex);
@@ -259,7 +259,7 @@ int event_thread() {
 
 int drawing_thread() {
     while (1) {
-        struct Query query;
+        struct Request request;
         {
             int r;
             r = pthread_mutex_lock(&mutex);
@@ -268,11 +268,11 @@ int drawing_thread() {
                 break;
             }
             {
-                if (queue_empty(&query_queue)) {
+                if (queue_empty(&request_queue)) {
                     pthread_cond_wait(&cond, &mutex);
                 }
-                query = *(struct Query *)queue_front(&query_queue);
-                queue_pop(&query_queue);
+                request = *(struct Request *)queue_front(&request_queue);
+                queue_pop(&request_queue);
             }
             r = pthread_mutex_unlock(&mutex);
             if (r != 0) {
@@ -296,60 +296,60 @@ int drawing_thread() {
             disp.curosr_pos = point_new(mouse_x, mouse_y);
         }
 
-        printf("drawing --> "); query_print(&query);
+        printf("drawing --> "); request_print(&request);
 
-        struct Window *target_win = window_get_by_id(query.target_window_id);
-        switch (query.type) {
-            case TINYWS_QUERY_DRAW_RECT:
+        struct Window *target_win = window_get_by_id(request.target_window_id);
+        switch (request.type) {
+            case TINYWS_REQUEST_DRAW_RECT:
             {
                 assert(target_win);
-                int x = query.param.draw_rect.x;
-                int y = query.param.draw_rect.y;
-                int w = query.param.draw_rect.w;
-                int h = query.param.draw_rect.h;
-                Color c = query.param.draw_rect.color;
+                int x = request.param.draw_rect.x;
+                int y = request.param.draw_rect.y;
+                int w = request.param.draw_rect.w;
+                int h = request.param.draw_rect.h;
+                Color c = request.param.draw_rect.color;
                 if (draw_rect(target_win, x, y, w, h, c) < 0) {
                     return -1;
                 }
                 break;
             }
-            case TINYWS_QUERY_DRAW_CIRCLE:
+            case TINYWS_REQUEST_DRAW_CIRCLE:
             {
                 assert(target_win);
-                int x_center = query.param.draw_circle.x;
-                int y_center = query.param.draw_circle.y;
-                int radius = query.param.draw_circle.radius;
-                char filled = query.param.draw_circle.filled;
-                Color c = query.param.draw_circle.color;
+                int x_center = request.param.draw_circle.x;
+                int y_center = request.param.draw_circle.y;
+                int radius = request.param.draw_circle.radius;
+                char filled = request.param.draw_circle.filled;
+                Color c = request.param.draw_circle.color;
                 if (draw_circle(target_win, x_center, y_center, radius, filled, c) < 0) {
                     return -1;
                 }
                 break;
             }
-            case TINYWS_QUERY_DRAW_LINE:
+            case TINYWS_REQUEST_DRAW_LINE:
             {
                 assert(target_win);
-                int x1 = query.param.draw_line.x1;
-                int y1 = query.param.draw_line.y1;
-                int x2 = query.param.draw_line.x2;
-                int y2 = query.param.draw_line.y2;
-                Color c = query.param.draw_line.color;
+                int x1 = request.param.draw_line.x1;
+                int y1 = request.param.draw_line.y1;
+                int x2 = request.param.draw_line.x2;
+                int y2 = request.param.draw_line.y2;
+                Color c = request.param.draw_line.color;
                 if (draw_line(target_win, x1, y1, x2, y2, c) < 0) {
                     return -1;
                 }
                 break;
             }
-            case TINYWS_QUERY_DRAW_PIXEL:
+            case TINYWS_REQUEST_DRAW_PIXEL:
             {
-                int x = query.param.draw_pixel.x;
-                int y = query.param.draw_pixel.y;
-                Color c = query.param.draw_pixel.color;
+                int x = request.param.draw_pixel.x;
+                int y = request.param.draw_pixel.y;
+                Color c = request.param.draw_pixel.color;
                 if (draw_pixel(target_win, x, y, c) < 0) {
                     return -1;
                 }
                 break;
             }
-            case TINYWS_QUERY_CLEAR_WINDOW:
+            case TINYWS_REQUEST_CLEAR_WINDOW:
             {
                 assert(target_win);
                 clear_screen(target_win);
@@ -358,7 +358,7 @@ int drawing_thread() {
             
             default:
             {
-                printf("invalid query\n");
+                printf("invalid request\n");
                 break;
             }
         }
@@ -378,7 +378,7 @@ int drawing_thread() {
     }
 
     display_release(&disp);
-    queue_free(&query_queue);
+    queue_free(&request_queue);
     return 0;
 }
 
@@ -396,7 +396,7 @@ int init() {
 
     window_subsystem_init();
 
-    query_queue = queue_new(sizeof(struct Query));
+    request_queue = queue_new(sizeof(struct Request));
     
     // root window
     root_win = window_new(NULL, &disp, point_new(0, 0), size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));

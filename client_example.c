@@ -10,7 +10,7 @@
 
 #include "basic_structures.h"
 #include "tcp.h"
-#include "query.h"
+#include "request.h"
 #include "response.h"
 
 #define BUFFERSIZE 1024
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         printf("> "); fflush(stdout);
         scanf("%s", command);
 
-        struct Query query;
+        struct Request request;
         
         if (strcmp(command, "?") == 0 || strcmp(command, "help") == 0) {
             printf("command list\n");
@@ -69,14 +69,14 @@ int main(int argc, char *argv[]) {
             printf("? r, g, b = "); fflush(stdout);
             scanf("%d %d %d", &r, &g, &b);
 
-            query.type = TINYWS_QUERY_CREATE_WINDOW;
-            query.param.create_window.width = w;
-            query.param.create_window.height = h;
-            query.param.create_window.pos_x = x;
-            query.param.create_window.pos_y = y;
-            query.param.create_window.pos_y = y;
-            query.param.create_window.parent_window_id = parent;
-            query.param.create_window.bg_color = color_new(r, g, b, 255);
+            request.type = TINYWS_REQUEST_CREATE_WINDOW;
+            request.param.create_window.width = w;
+            request.param.create_window.height = h;
+            request.param.create_window.pos_x = x;
+            request.param.create_window.pos_y = y;
+            request.param.create_window.pos_y = y;
+            request.param.create_window.parent_window_id = parent;
+            request.param.create_window.bg_color = color_new(r, g, b, 255);
         } else if (strcmp(command, "close") == 0) {
             printf("sorry, unimplemented !\n");
         } else if (strcmp(command, "move") == 0) {
@@ -84,10 +84,10 @@ int main(int argc, char *argv[]) {
             printf("? win_id, x, y = "); fflush(stdout);
             scanf("%d %d %d", &win, &x, &y);
 
-            query.type = TINYWS_QUERY_SET_WINDOW_POS;
-            query.target_window_id = win;
-            query.param.set_window_pos.pos_x = x;
-            query.param.set_window_pos.pos_y = y;
+            request.type = TINYWS_REQUEST_SET_WINDOW_POS;
+            request.target_window_id = win;
+            request.param.set_window_pos.pos_x = x;
+            request.param.set_window_pos.pos_y = y;
         } else if (strcmp(command, "setvis") == 0) {
             int win;
             printf("? win_id = "); fflush(stdout);
@@ -96,9 +96,9 @@ int main(int argc, char *argv[]) {
             printf("? vis (show: 1, hide: 0) = "); fflush(stdout);
             scanf("%d", &vis);
 
-            query.type = TINYWS_QUERY_SET_WINDOW_VISIBILITY;
-            query.target_window_id = win;
-            query.param.set_window_visibility.visible = vis;
+            request.type = TINYWS_REQUEST_SET_WINDOW_VISIBILITY;
+            request.target_window_id = win;
+            request.param.set_window_visibility.visible = vis;
         } else if (strcmp(command, "draw_rect") == 0) {
             int win, x, y, w, h, r, g, b;
             printf("? win_id = "); fflush(stdout);
@@ -108,13 +108,13 @@ int main(int argc, char *argv[]) {
             printf("? r g b = "); fflush(stdout);
             scanf("%d %d %d", &r, &g, &b);
 
-            query.type = TINYWS_QUERY_DRAW_RECT;
-            query.target_window_id = win;
-            query.param.draw_rect.x = x;
-            query.param.draw_rect.y = y;
-            query.param.draw_rect.w = w;
-            query.param.draw_rect.h = h;
-            query.param.draw_rect.color = color_new(r, g, b, 255);
+            request.type = TINYWS_REQUEST_DRAW_RECT;
+            request.target_window_id = win;
+            request.param.draw_rect.x = x;
+            request.param.draw_rect.y = y;
+            request.param.draw_rect.w = w;
+            request.param.draw_rect.h = h;
+            request.param.draw_rect.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "draw_circle") == 0) {
             int win, x, y, radius, r, g, b;
             printf("? win_id = "); fflush(stdout);
@@ -124,12 +124,12 @@ int main(int argc, char *argv[]) {
             printf("? r g b = "); fflush(stdout);
             scanf("%d %d %d", &r, &g, &b);
 
-            query.type = TINYWS_QUERY_DRAW_CIRCLE;
-            query.target_window_id = win;
-            query.param.draw_circle.x = x;
-            query.param.draw_circle.y = y;
-            query.param.draw_circle.radius = radius;
-            query.param.draw_circle.color = color_new(r, g, b, 255);
+            request.type = TINYWS_REQUEST_DRAW_CIRCLE;
+            request.target_window_id = win;
+            request.param.draw_circle.x = x;
+            request.param.draw_circle.y = y;
+            request.param.draw_circle.radius = radius;
+            request.param.draw_circle.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "draw_line") == 0) {
             int win, x1, y1, x2, y2, r, g, b;
             printf("? win_id = "); fflush(stdout);
@@ -139,13 +139,13 @@ int main(int argc, char *argv[]) {
             printf("? r g b = "); fflush(stdout);
             scanf("%d %d %d", &r, &g, &b);
 
-            query.type = TINYWS_QUERY_DRAW_LINE;
-            query.target_window_id = win;
-            query.param.draw_line.x1 = x1;
-            query.param.draw_line.y1 = y1;
-            query.param.draw_line.x2 = x2;
-            query.param.draw_line.y2 = y2;
-            query.param.draw_line.color = color_new(r, g, b, 255);
+            request.type = TINYWS_REQUEST_DRAW_LINE;
+            request.target_window_id = win;
+            request.param.draw_line.x1 = x1;
+            request.param.draw_line.y1 = y1;
+            request.param.draw_line.x2 = x2;
+            request.param.draw_line.y2 = y2;
+            request.param.draw_line.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "draw_pixel") == 0) {
             int win, x, y, r, g, b;
             printf("? win_id = "); fflush(stdout);
@@ -155,18 +155,18 @@ int main(int argc, char *argv[]) {
             printf("? r g b = "); fflush(stdout);
             scanf("%d %d %d", &r, &g, &b);
 
-            query.type = TINYWS_QUERY_DRAW_PIXEL;
-            query.target_window_id = win;
-            query.param.draw_pixel.x = x;
-            query.param.draw_pixel.y = y;
-            query.param.draw_pixel.color = color_new(r, g, b, 255);
+            request.type = TINYWS_REQUEST_DRAW_PIXEL;
+            request.target_window_id = win;
+            request.param.draw_pixel.x = x;
+            request.param.draw_pixel.y = y;
+            request.param.draw_pixel.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "clear") == 0) {
             int win;
             printf("? win_id = "); fflush(stdout);
             scanf("%d", &win);
 
-            query.type = TINYWS_QUERY_CLEAR_WINDOW;
-            query.target_window_id = win;
+            request.type = TINYWS_REQUEST_CLEAR_WINDOW;
+            request.target_window_id = win;
         } else if (strcmp(command, "exit") == 0) {
             break;
         } else {
@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        size_t bytes = query_encode(&query, message, BUFFERSIZE);
+        size_t bytes = request_encode(&request, message, BUFFERSIZE);
         if (bytes == 0) {
             fprintf(stderr, "buffer too small\n");
             return 1;
