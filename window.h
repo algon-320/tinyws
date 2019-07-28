@@ -36,4 +36,6 @@ int window_draw(struct Window *win, struct Display *disp);
 
 struct Window *window_get_by_id(uint32_t win_id);
 
+void window_move_top(struct Window *win);
+
 #endif

@@ -186,3 +186,39 @@ struct Window *window_get_by_id(uint32_t win_id) {
     }
     return NULL;
 }
+
+// for debug
+void widow_print_all() {
+    for (size_t i = 0; i < deque_size(&windows); i++) {
+        struct Window *win = deque_at(&windows, i);
+        debugprint("id=%d\n", win->id);
+        if (win->child.next) {
+            struct Window *ch = CONTAINNER_OF(win->child.next, struct Window, next);
+            debugprint("child=%d\n", ch->id);
+        } else {
+            debugprint("child=NULL\n");
+        }
+        if (win->next.next) {
+            struct Window *ch = CONTAINNER_OF(win->next.next, struct Window, next);
+            debugprint("next=%d\n", ch->id);
+        } else {
+            debugprint("next=NULL\n");
+        }
+    }
+}
+
+void window_move_top(struct Window *win) {
+    // widow_print_all();
+    if (!win->next.next) {
+        // already top
+        debugprint("window_move_top: %d already top\n", win->id);
+        return;
+    } else {
+        LinkedList *ptr = win->next.next;
+        linked_list_erase(&win->next);
+        while (ptr->next) {
+            ptr = ptr->next;
+        }
+        linked_list_insert_next(ptr, &win->next);
+    }
+}

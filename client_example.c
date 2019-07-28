@@ -53,6 +53,8 @@ int main(int argc, char *argv[]) {
             printf("\tmove: move specific window\n");
             printf("\tsetvis: show / hide specific window\n");
             printf("\tclose: close specific window\n");
+            printf("\tfocus: focus specific window\n");
+            printf("\tmovetop: move specific window top\n");
             printf("\tdraw_rect: drawing a rectangle\n");
             printf("\tdraw_circle: drawing a cirlce\n");
             printf("\tdraw_line: drawing a line\n");
@@ -94,6 +96,18 @@ int main(int argc, char *argv[]) {
             request.type = TINYWS_REQUEST_SET_WINDOW_VISIBILITY;
             request.target_window_id = win;
             request.param.set_window_visibility.visible = vis;
+        } else if (strcmp(command, "focus") == 0) {
+            int win;
+            printf("? win_id = "); fflush(stdout);
+            scanf("%d", &win);
+            request.type = TINYWS_REQUEST_SET_FOCUS;
+            request.target_window_id = win;
+        } else if (strcmp(command, "movetop") == 0) {
+            int win;
+            printf("? win_id = "); fflush(stdout);
+            scanf("%d", &win);
+            request.type = TINYWS_REQUEST_MOVE_WINDOW_TOP;
+            request.target_window_id = win;
         } else if (strcmp(command, "draw_rect") == 0) {
             int win, x, y, w, h, r, g, b;
             printf("? win_id = "); fflush(stdout);

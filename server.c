@@ -155,6 +155,21 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 win->visible = request.param.set_window_visibility.visible;
                 break;
             }
+            case TINYWS_REQUEST_SET_FOCUS:
+            {
+                window_set_focus(request.target_window_id);
+                break;
+            }
+            case TINYWS_REQUEST_MOVE_WINDOW_TOP:
+            {
+                struct Window *win = window_get_by_id(request.target_window_id);
+                if (win == NULL) {
+                    resp.success = 0;
+                    break;
+                }
+                window_move_top(win);
+                break;
+            }
 
             case TINYWS_REQUEST_GET_EVENT:
             {
@@ -443,6 +458,10 @@ int drawing_thread() {
             {
                 assert(target_win);
                 clear_screen(target_win);
+                break;
+            }
+            case TINYWS_REQUEST_REFRESH:
+            {
                 break;
             }
             
