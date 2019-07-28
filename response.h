@@ -17,7 +17,7 @@ struct Response {
     ResponseType type;
     union {
         struct {
-            int32_t id;
+            uint32_t id;
         } window_id;
         struct Event event;
     } content;

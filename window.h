@@ -3,7 +3,7 @@
 
 #include <SDL2/SDL.h>
 
-#include "lib/deque.h"
+#include "lib/queue.h"
 #include "lib/embedded_linked_list.h"
 #include "basic_structures.h"
 #include "display.h"
@@ -16,14 +16,19 @@ struct Window {
     uint8_t visible;
     char title[256];
     Color background_color;
-    LinkedList children; // <struct Window *>
+    Queue events;  // <struct Event>
+    LinkedList child;  // <struct Window *>
+    LinkedList next;   // <struct Window *>
     SDL_Texture *buffer;
     struct Display *disp;
 };
 
 void window_subsystem_init();
 
-struct Window *window_new(struct Window *parent, struct Display *disp, Point pos, Size size, const char *title, Color bg_color);
+struct Window *window_get_focused();
+void window_set_focus(uint32_t window_id);
+
+struct Window *window_new(struct Window *parent, struct Display *disp, Rect rect, const char *title, Color bg_color);
 
 int window_release(struct Window *win);
 

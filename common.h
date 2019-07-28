@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define SDL_CALL_NONNEG(func_name, ...)\
         do {\
@@ -18,34 +19,45 @@
         ((containner *)((char *)ptr - OFFSET_OF(containner, member)))
 
 
+// value: any_int_type, dst: uint8_t**
 #define WRITE_INT_LE(value, dst)\
         do {\
             for (size_t i = 0; i < sizeof(value); i++) {\
-                dst[i] = (value >> (i * 8)) & ((1 << 8) - 1);\
+                (*(dst))[i] = ((value) >> (i * 8)) & ((1 << 8) - 1);\
             }\
-            dst += sizeof(value);\
+            (*(dst)) += sizeof(value);\
         } while (0)
+// value: enum_value, dst: uint8_t**
 #define WRITE_ENUM_LE(value, dst)\
         do {\
             int32_t tmp = value;\
             WRITE_INT_LE(tmp, dst);\
         } while (0)
 
-
+// src: uint8_t**, dst: any_int_type*
 #define READ_INT_LE(src, dst)\
         do {\
-            *dst = 0;\
-            for (size_t i = 0; i < sizeof(*dst); i++) {\
-                *dst |= src[i] << (i * 8);\
+            *(dst) = 0;\
+            for (size_t i = 0; i < sizeof(*(dst)); i++) {\
+                *(dst) |= (*(src))[i] << (i * 8);\
             }\
-            src += sizeof(*dst);\
+            *(src) += sizeof(*(dst));\
         } while (0)
 
+// src: uint8_t**, dst: enum_value*
 #define READ_ENUM_LE(src, dst)\
         do {\
             int32_t tmp = 0;\
             READ_INT_LE(src, &tmp);\
-            *dst = tmp;\
+            *(dst) = tmp;\
         } while (0)
+
+#define PANIC(...) do { fprintf(stderr, "panic: " __VA_ARGS__); exit(1); } while (0)
+
+#ifdef NDEBUG
+    #define debugprint(...)
+#else
+    #define debugprint(...) do { fprintf(stderr, "\x1b[33;1m"); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\x1b[0m"); } while (0)
+#endif
 
 #endif

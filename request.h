@@ -20,37 +20,42 @@ typedef enum {
     TINYWS_REQUEST_SET_WINDOW_POS,
     TINYWS_REQUEST_SET_WINDOW_VISIBILITY,
 
+    // event
+    TINYWS_REQUEST_GET_EVENT,
+
     TINYWS_REQUEST_INVALID,
 } RequestType;
 
 struct Request {
     RequestType type;
-    int32_t target_window_id;
+    uint32_t target_window_id;
     union {
         struct {
-            int32_t x, y, w, h;
+            Rect rect;
             Color color;
         } draw_rect;
         struct {
-            int32_t x, y, radius;
+            Point center;
+            int32_t radius;
             uint8_t filled;
             Color color;
         } draw_circle;
         struct {
-            int32_t x1, y1, x2, y2;
+            Point p1;
+            Point p2;
             Color color;
         } draw_line;
         struct {
-            int32_t x, y;
+            Point p;
             Color color;
         } draw_pixel;
         struct {
-            int32_t parent_window_id;
-            int32_t width, height, pos_x, pos_y;
+            uint32_t parent_window_id;
+            Rect rect;
             Color bg_color;
         } create_window;
         struct {
-            int32_t pos_x, pos_y;
+            Point pos;
         } set_window_pos;
         struct {
             uint8_t visible;

@@ -70,11 +70,7 @@ int main(int argc, char *argv[]) {
             scanf("%d %d %d", &r, &g, &b);
 
             request.type = TINYWS_REQUEST_CREATE_WINDOW;
-            request.param.create_window.width = w;
-            request.param.create_window.height = h;
-            request.param.create_window.pos_x = x;
-            request.param.create_window.pos_y = y;
-            request.param.create_window.pos_y = y;
+            request.param.create_window.rect = rect_new(x, y, w, h);
             request.param.create_window.parent_window_id = parent;
             request.param.create_window.bg_color = color_new(r, g, b, 255);
         } else if (strcmp(command, "close") == 0) {
@@ -86,8 +82,7 @@ int main(int argc, char *argv[]) {
 
             request.type = TINYWS_REQUEST_SET_WINDOW_POS;
             request.target_window_id = win;
-            request.param.set_window_pos.pos_x = x;
-            request.param.set_window_pos.pos_y = y;
+            request.param.set_window_pos.pos = point_new(x, y);
         } else if (strcmp(command, "setvis") == 0) {
             int win;
             printf("? win_id = "); fflush(stdout);
@@ -110,10 +105,7 @@ int main(int argc, char *argv[]) {
 
             request.type = TINYWS_REQUEST_DRAW_RECT;
             request.target_window_id = win;
-            request.param.draw_rect.x = x;
-            request.param.draw_rect.y = y;
-            request.param.draw_rect.w = w;
-            request.param.draw_rect.h = h;
+            request.param.draw_rect.rect = rect_new(x, y, w, h);
             request.param.draw_rect.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "draw_circle") == 0) {
             int win, x, y, radius, r, g, b;
@@ -126,8 +118,7 @@ int main(int argc, char *argv[]) {
 
             request.type = TINYWS_REQUEST_DRAW_CIRCLE;
             request.target_window_id = win;
-            request.param.draw_circle.x = x;
-            request.param.draw_circle.y = y;
+            request.param.draw_circle.center = point_new(x, y);
             request.param.draw_circle.radius = radius;
             request.param.draw_circle.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "draw_line") == 0) {
@@ -141,10 +132,8 @@ int main(int argc, char *argv[]) {
 
             request.type = TINYWS_REQUEST_DRAW_LINE;
             request.target_window_id = win;
-            request.param.draw_line.x1 = x1;
-            request.param.draw_line.y1 = y1;
-            request.param.draw_line.x2 = x2;
-            request.param.draw_line.y2 = y2;
+            request.param.draw_line.p1 = point_new(x1, y1);
+            request.param.draw_line.p2 = point_new(x2, y2);
             request.param.draw_line.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "draw_pixel") == 0) {
             int win, x, y, r, g, b;
@@ -157,8 +146,7 @@ int main(int argc, char *argv[]) {
 
             request.type = TINYWS_REQUEST_DRAW_PIXEL;
             request.target_window_id = win;
-            request.param.draw_pixel.x = x;
-            request.param.draw_pixel.y = y;
+            request.param.draw_pixel.p = point_new(x, y);
             request.param.draw_pixel.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "clear") == 0) {
             int win;
