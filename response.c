@@ -47,6 +47,11 @@ size_t response_encode(const struct Response *resp, uint8_t *out, size_t size) {
             WRITE_INT_LE(resp->content.window_id.id, nxt);
             break;
         }
+        case TINYWS_RESPONSE_EVENT_NOTIFY:
+        {
+            event_encode(&resp->content.event, nxt);
+            break;
+        }
     }
     return (nxt - out);
 }
@@ -66,6 +71,11 @@ struct Response response_decode(const uint8_t *buf, size_t size) {
         case TINYWS_RESPONSE_WINDOW_ID:
         {
             READ_INT_LE(buf, &ret.content.window_id.id);
+            break;
+        }
+        case TINYWS_RESPONSE_EVENT_NOTIFY:
+        {
+            ret.content.event = event_decode(buf);
             break;
         }
     }

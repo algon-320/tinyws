@@ -2,6 +2,7 @@
 #define INCLUDE_GUARD_EVENT_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 enum EventType {
     TINYWS_EVENT_MOUSE_DOWN,
@@ -25,7 +26,7 @@ struct Event {
     } param;
 };
 
-void event_encode(const struct Event *event, uint8_t *out);
-struct Event event_decode(uint8_t *in);
+size_t event_encode(const struct Event *event, uint8_t *out);
+struct Event event_decode(const uint8_t *in);
 
 #endif
