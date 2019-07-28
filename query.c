@@ -2,6 +2,7 @@
 #include <assert.h>
 
 #include "query.h"
+#include "common.h"
 
 void query_print(const struct Query *query) {
     switch (query->type) {
@@ -96,19 +97,10 @@ void query_print(const struct Query *query) {
 }
 
 
-#define WRITE_INT_LE(value, dst)\
-    do {\
-        for (size_t i = 0; i < sizeof(value); i++) {\
-            dst[i] = (value >> (i * 8)) & ((1 << 8) - 1);\
-        }\
-        dst += sizeof(value);\
-    } while (0)
-
 size_t query_encode(const struct Query *query, uint8_t *out, size_t size) {
     
     uint8_t *nxt = out;
-    WRITE_INT_LE((int32_t)query->type, nxt);
-    
+    WRITE_ENUM_LE(query->type, nxt);
     WRITE_INT_LE(query->target_window_id, nxt);
 
     switch (query->type) {
@@ -204,25 +196,10 @@ size_t query_encode(const struct Query *query, uint8_t *out, size_t size) {
 }
 
 
-
-#define READ_INT_LE(src, dst)\
-    do {\
-        *dst = 0;\
-        for (size_t i = 0; i < sizeof(*dst); i++) {\
-            *dst |= src[i] << (i * 8);\
-        }\
-        src += sizeof(*dst);\
-    } while (0)
-
 struct Query query_decode(const uint8_t *buf, size_t size) {
     struct Query ret;
     
-    {
-        int32_t tmp_query_type;
-        READ_INT_LE(buf, &tmp_query_type);
-        ret.type = tmp_query_type;
-    }
-
+    READ_ENUM_LE(buf, &ret.type);
     READ_INT_LE(buf, &ret.target_window_id);
 
     switch (ret.type) {

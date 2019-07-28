@@ -4,9 +4,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "event.h"
+
 typedef enum {
     TINYWS_RESPONSE_NOCONTENT,
     TINYWS_RESPONSE_WINDOW_ID,
+    TINYWS_RESPONSE_EVENT_NOTIFY,
 } ResponseType;
 
 struct Response {
@@ -16,6 +19,7 @@ struct Response {
         struct {
             int32_t id;
         } window_id;
+        struct Event event;
     } content;
 };
 
