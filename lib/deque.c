@@ -8,7 +8,7 @@
 #include "utils.h"
 
 Deque deque_new(size_t num, size_t elem_size_byte) {
-    return deque_new_with_capacity(num, elem_size_byte, num * 2);
+    return deque_new_with_capacity(num, elem_size_byte, (num + 1) * 2);
 }
 
 Deque deque_new_filled_with(size_t num, size_t elem_size_byte, void *elem) {

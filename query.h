@@ -50,11 +50,9 @@ struct Query {
             Color bg_color;
         } create_window;
         struct {
-            int32_t window_id;
             int32_t pos_x, pos_y;
         } set_window_pos;
         struct {
-            int32_t window_id;
             uint8_t visible;
         } set_window_visibility;
     } param;

@@ -9,6 +9,8 @@ typedef struct LinkedList_ {
     void *data;
 } LinkedList;
 
+#define LINKED_LIST_TAKE(node, type) *(type *)(node->data)
+
 void linked_list_init(LinkedList *node, LinkedList *prev, LinkedList *next, void *data, size_t elem_size_byte);
 
 void linked_list_release(LinkedList *node);

@@ -1,17 +1,8 @@
 #include <stdio.h>
 #include <SDL2/SDL.h>
 
+#include "common.h"
 #include "draw.h"
-
-// 失敗したら負を返す関数用のエラー処理ラッパー
-#define SDL_CALL_NONNEG(func_name, ...)\
-do {\
-    if (func_name(__VA_ARGS__) < 0) {\
-        fprintf(stderr, __FILE__ ": " #func_name " Error: %s\n", SDL_GetError());\
-        return -1;\
-    }\
-} while (0)
-
 
 int draw_rect(struct Window *win, int x, int y, int w, int h, Color color) {   
     SDL_CALL_NONNEG(SDL_SetRenderTarget, win->disp->ren, win->buffer);

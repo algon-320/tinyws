@@ -16,25 +16,16 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "basic_structures.h"
 #include "lib/queue.h"
 #include "lib/stack.h"
-#include "lib/linked_list.h"
 #include "tcp.h"
 #include "display.h"
 #include "draw.h"
 #include "query.h"
 #include "response.h"
 #include "window.h"
-
-// 失敗したら負を返す関数用のエラー処理ラッパー
-#define SDL_CALL_NONNEG(func_name, ...)\
-do {\
-    if (func_name(__VA_ARGS__) < 0) {\
-        fprintf(stderr, __FILE__ ": " #func_name " Error: %s\n", SDL_GetError());\
-        return -1;\
-    }\
-} while (0)
 
 struct Display disp;
 struct Window *root_win;
@@ -49,6 +40,26 @@ int receive_request(uint8_t *line, size_t size, FILE *in) {
         return -1;
     }
     return 0;
+}
+
+void refresh_screen() {
+    int r;
+    r = pthread_mutex_lock(&mutex);
+    if (r != 0) {
+        fprintf(stderr, "can not lock\n");
+        return;
+    }
+    {
+        struct Query query;
+        query.type = TINYWS_QUERY_REFRESH;
+        queue_push(&query_queue, &query);
+        pthread_cond_signal(&cond);
+    }
+    r = pthread_mutex_unlock(&mutex);
+    if (r != 0) {
+        fprintf(stderr, "can not lock\n");
+        return;
+    }
 }
 
 struct interaction_thread_arg {
@@ -78,6 +89,9 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         perror("fdopen");
         exit(1);
     }
+
+    // <struct Window *>
+    Deque openning_windows = deque_new(0, sizeof(struct Window *));
 
     while (receive_request(buf, BUFFSIZE, in) >= 0) {
         // printf("receive %d bytes: %s\n", rcount, buf);
@@ -114,35 +128,32 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 resp.type = TINYWS_RESPONSE_WINDOW_ID;
                 resp.content.window_id.id = win->id;
 
-                // 再描画
-                {
-                    int r;
-                    r = pthread_mutex_lock(&mutex);
-                    if (r != 0) {
-                        fprintf(stderr, "can not lock\n");
-                        break;
-                    }
-                    {
-                        struct Query query;
-                        query.type = TINYWS_QUERY_REFRESH;
-                        queue_push(&query_queue, &query);
-                        pthread_cond_signal(&cond);
-                    }
-                    r = pthread_mutex_unlock(&mutex);
-                    if (r != 0) {
-                        fprintf(stderr, "can not lock\n");
-                        break;
-                    }
+                // トップレベルウィンドウのみ記録
+                if (parent_win->id == 0) {
+                    deque_push_back(&openning_windows, &win);
                 }
                 break;
             }
             case TINYWS_QUERY_SET_WINDOW_POS:
             {
+                struct Window *win = window_get_by_id(query.target_window_id);
+                if (win == NULL) {
+                    resp.success = 0;
+                    break;
+                }
 
+                win->pos.x = query.param.set_window_pos.pos_x;
+                win->pos.y = query.param.set_window_pos.pos_y;
                 break;
             }
             case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
             {
+                struct Window *win = window_get_by_id(query.target_window_id);
+                if (win == NULL) {
+                    resp.success = 0;
+                    break;
+                }
+                win->visible = query.param.set_window_visibility.visible;
                 break;
             }
 
@@ -181,9 +192,21 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             }
         }
 
+        // 再描画
+        refresh_screen();
+
         size_t bytes = response_encode(&resp, response_buf, BUFFSIZE);
         fwrite(response_buf, sizeof(uint8_t), BUFFSIZE, out);
     }
+
+    // このクライアントに紐付いたウィンドウを閉じる
+    while (deque_size(&openning_windows)) {
+        struct Window *win = DEQUE_TAKE(deque_back(&openning_windows), struct Window *);
+        deque_pop_back(&openning_windows);
+        printf("release id=%d\n", win->id);
+        window_release(win);
+    }
+    refresh_screen();
 
     printf("connection closed.\n");
     fclose(in);
@@ -207,8 +230,8 @@ int event_thread() {
             }
             case SDL_KEYDOWN:
             {
-                if (deque_size(&root_win->children)) {
-                    struct Window *win = DEQUE_TAKE(deque_at(&root_win->children, 0), struct Window *);
+                if (root_win->children.next) {
+                    struct Window *win = CONTAINNER_OF(root_win->children.next, struct Window, children);
                     switch (event.key.keysym.sym) {
                         case SDLK_UP:
                             win->pos.y -= 50;
@@ -229,25 +252,7 @@ int event_thread() {
         }
         
         // 再描画
-        {
-            int r;
-            r = pthread_mutex_lock(&mutex);
-            if (r != 0) {
-                fprintf(stderr, "can not lock\n");
-                break;
-            }
-            {
-                struct Query query;
-                query.type = TINYWS_QUERY_REFRESH;
-                queue_push(&query_queue, &query);
-                pthread_cond_signal(&cond);
-            }
-            r = pthread_mutex_unlock(&mutex);
-            if (r != 0) {
-                fprintf(stderr, "can not lock\n");
-                break;
-            }
-        }
+        refresh_screen();
     }
     return 0;
 }
@@ -294,10 +299,10 @@ int drawing_thread() {
         printf("drawing --> "); query_print(&query);
 
         struct Window *target_win = window_get_by_id(query.target_window_id);
-        assert(target_win);
         switch (query.type) {
             case TINYWS_QUERY_DRAW_RECT:
             {
+                assert(target_win);
                 int x = query.param.draw_rect.x;
                 int y = query.param.draw_rect.y;
                 int w = query.param.draw_rect.w;
@@ -310,6 +315,7 @@ int drawing_thread() {
             }
             case TINYWS_QUERY_DRAW_CIRCLE:
             {
+                assert(target_win);
                 int x_center = query.param.draw_circle.x;
                 int y_center = query.param.draw_circle.y;
                 int radius = query.param.draw_circle.radius;
@@ -322,6 +328,7 @@ int drawing_thread() {
             }
             case TINYWS_QUERY_DRAW_LINE:
             {
+                assert(target_win);
                 int x1 = query.param.draw_line.x1;
                 int y1 = query.param.draw_line.y1;
                 int x2 = query.param.draw_line.x2;
@@ -344,6 +351,7 @@ int drawing_thread() {
             }
             case TINYWS_QUERY_CLEAR_WINDOW:
             {
+                assert(target_win);
                 clear_screen(target_win);
                 break;
             }
@@ -362,11 +370,7 @@ int drawing_thread() {
         SDL_RenderClear(disp.ren);
         
         // draw windows
-        struct Window *win = root_win;
-        while (win) {
-            window_draw(win, &disp);
-            win = win->z_ord_next;
-        }
+        window_draw(root_win, &disp);
         window_draw(overlay_win, &disp);
 
         // update screen

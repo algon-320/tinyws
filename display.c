@@ -1,13 +1,6 @@
 #include <stdio.h>
+#include "common.h"
 #include "display.h"
-
-#define SDL_CALL_NONNEG(func_name, ...)\
-do {\
-    if (func_name(__VA_ARGS__) < 0) {\
-        fprintf(stderr, __FILE__ ": "  #func_name " Error: %s\n", SDL_GetError());\
-        return -1;\
-    }\
-} while (0)
 
 int display_new(struct Display *disp, Size window_size, const char *title) {
     struct Display ret;

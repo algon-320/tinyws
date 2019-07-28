@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 
 #include "lib/deque.h"
+#include "lib/embedded_linked_list.h"
 #include "basic_structures.h"
 #include "display.h"
 
@@ -15,11 +16,9 @@ struct Window {
     uint8_t visible;
     char title[256];
     Color background_color;
-    Deque children;  // <struct Window *>
+    LinkedList children; // <struct Window *>
     SDL_Texture *buffer;
     struct Display *disp;
-    struct Window *z_ord_prev;
-    struct Window *z_ord_next;
 };
 
 void window_subsystem_init();

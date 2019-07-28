@@ -77,15 +77,15 @@ void query_print(const struct Query *query) {
                     );
             break;
         case TINYWS_QUERY_SET_WINDOW_POS:
-            printf("TINYWS_QUERY_SET_WINDOW_POS(wid=%d, pos_x=%d, pos_y=%d)\n",
-                    query->param.set_window_pos.window_id,
+            printf("TINYWS_QUERY_SET_WINDOW_POS(target=%d, pos_x=%d, pos_y=%d)\n",
+                    query->target_window_id,
                     query->param.set_window_pos.pos_x,
                     query->param.set_window_pos.pos_y
                     );
             break;
         case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
-            printf("TINYWS_QUERY_SET_WINDOW_VISIBILITY(wid=%d, visible=%d)\n",
-                    query->param.set_window_visibility.window_id,
+            printf("TINYWS_QUERY_SET_WINDOW_VISIBILITY(target=%d, visible=%d)\n",
+                    query->target_window_id,
                     query->param.set_window_visibility.visible
                     );
             break;
@@ -183,14 +183,12 @@ size_t query_encode(const struct Query *query, uint8_t *out, size_t size) {
         }
         case TINYWS_QUERY_SET_WINDOW_POS:
         {
-            WRITE_INT_LE(query->param.set_window_pos.window_id, nxt);
             WRITE_INT_LE(query->param.set_window_pos.pos_x, nxt);
             WRITE_INT_LE(query->param.set_window_pos.pos_y, nxt);
             break;
         }
         case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
         {
-            WRITE_INT_LE(query->param.set_window_visibility.window_id, nxt);
             WRITE_INT_LE(query->param.set_window_visibility.visible, nxt);
             break;
         }
@@ -307,7 +305,6 @@ struct Query query_decode(const uint8_t *buf, size_t size) {
         case TINYWS_QUERY_SET_WINDOW_POS:
         {
             ret.type = TINYWS_QUERY_SET_WINDOW_POS;
-            READ_INT_LE(buf, &ret.param.set_window_pos.window_id);
             READ_INT_LE(buf, &ret.param.set_window_pos.pos_x);
             READ_INT_LE(buf, &ret.param.set_window_pos.pos_y);
             break;
@@ -315,7 +312,6 @@ struct Query query_decode(const uint8_t *buf, size_t size) {
         case TINYWS_QUERY_SET_WINDOW_VISIBILITY:
         {
             ret.type = TINYWS_QUERY_SET_WINDOW_VISIBILITY;
-            READ_INT_LE(buf, &ret.param.set_window_visibility.window_id);
             READ_INT_LE(buf, &ret.param.set_window_visibility.visible);
             break;
         }

@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "common.h"
 #include "window.h"
 #include "draw.h"
 #include "lib/deque.h"
@@ -39,8 +40,14 @@ struct Window *window_new(struct Window *parent, struct Display *disp, Point pos
     stack_pop(&free_win);
 
     win->parent = parent;
-    if (parent) {
-        deque_push_back(&parent->children, &win);
+
+    if (win->parent) {
+        linked_list_init(&win->children, NULL, NULL);
+        struct Window *ptr = win->parent;
+        while (ptr->children.next) {
+            ptr = CONTAINNER_OF(ptr->children.next, struct Window, children);
+        }
+        linked_list_insert_next(&ptr->children, &win->children);
     }
 
     win->buffer = SDL_CreateTexture(disp->ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, size.width, size.height);
@@ -59,46 +66,25 @@ struct Window *window_new(struct Window *parent, struct Display *disp, Point pos
     win->background_color = bg_color;
     win->visible = 1;
     strncpy(win->title, title, sizeof(win->title));
-    win->children = deque_new_with_capacity(0, sizeof(struct Window *), 4);
+
     win->disp = disp;
 
     clear_screen(win);
-
-    if (win->parent) {
-        struct Window *ptr = win->parent;
-        while (ptr->z_ord_next) ptr = ptr->z_ord_next;
-        ptr->z_ord_next = win;
-        win->z_ord_next = NULL;
-        win->z_ord_prev = ptr;
-    } else {
-        win->z_ord_next = NULL;
-        win->z_ord_prev = NULL;
-    }
     return win;
 }
 
 int window_release(struct Window *win) {
-    while (deque_size(&win->children)) {
-        struct Window *ptr = DEQUE_TAKE(deque_back(&win->children), struct Window *);
+    // release recursively
+    while (win->children.next) {
+        struct Window *ptr = CONTAINNER_OF(win->children.next, struct Window, children);
         window_release(ptr);
-        deque_pop_back(&win->children);
     }
-
-    if (win->parent) {
-        struct Window *prev = win->z_ord_prev;
-        struct Window *next = win->z_ord_next;
-        if (prev) prev->z_ord_next = next;
-        if (next) next->z_ord_prev = prev;
-    }
-    win->z_ord_next = NULL;
-    win->z_ord_prev = NULL;
+    linked_list_erase(&win->children);
 
     SDL_DestroyTexture(win->buffer);
-
-    win->parent =NULL;
+    win->parent = NULL;
     win->buffer = NULL;
     win->disp = NULL;
-    deque_free(&win->children);
 
     stack_push(&free_win, &win);
     return 0;
@@ -137,8 +123,10 @@ int window_draw(struct Window *win, struct Display *disp) {
     }
     
     // draw recursively
-    for (size_t i = 0, sz = deque_size(&win->children); i < sz; i++) {
-        window_draw(DEQUE_TAKE(&win->children, struct Window *), disp);
+    struct Window *ptr = win;
+    while (ptr->children.next) {
+        ptr = CONTAINNER_OF(ptr->children.next, struct Window, children);
+        window_draw(ptr, disp);
     }
     return 0;
 }
