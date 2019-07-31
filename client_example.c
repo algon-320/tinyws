@@ -138,11 +138,11 @@ int main(int argc, char *argv[]) {
             request.param.draw_rect.rect = rect_new(x, y, w, h);
             request.param.draw_rect.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "draw_circle") == 0) {
-            int win, x, y, radius, r, g, b;
+            int win, x, y, radius, filled, r, g, b;
             printf("? win_id = "); fflush(stdout);
             scanf("%d", &win);
-            printf("? x y radius = "); fflush(stdout);
-            scanf("%d %d %d", &x, &y, &radius);
+            printf("? x y radius filled = "); fflush(stdout);
+            scanf("%d %d %d %d", &x, &y, &radius, &filled);
             printf("? r g b = "); fflush(stdout);
             scanf("%d %d %d", &r, &g, &b);
 
@@ -150,6 +150,7 @@ int main(int argc, char *argv[]) {
             request.target_window_id = win;
             request.param.draw_circle.center = point_new(x, y);
             request.param.draw_circle.radius = radius;
+            request.param.draw_circle.filled = filled;
             request.param.draw_circle.color = color_new(r, g, b, 255);
         } else if (strcmp(command, "draw_line") == 0) {
             int win, x1, y1, x2, y2, r, g, b;
