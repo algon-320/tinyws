@@ -33,7 +33,7 @@ void window_set_focus(window_id_t window_id);
 
 struct Window *window_new(struct Window *parent, struct Display *disp, int32_t settion_id, int32_t window_manager, Rect rect, const char *title, Color bg_color);
 
-int window_release(struct Window *win);
+int window_close(struct Window *win);
 
 int window_draw(struct Window *win, struct Display *disp);
 

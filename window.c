@@ -98,13 +98,13 @@ struct Window *window_new(struct Window *parent, struct Display *disp, client_id
     return win;
 }
 
-int window_release(struct Window *win) {
-    debugprint("window_release win=%d\n", win->id);
+int window_close(struct Window *win) {
+    debugprint("window_close win=%d\n", win->id);
 
     // release recursively
     while (win->child.next) {
         struct Window *ptr = CONTAINNER_OF(win->child.next, struct Window, next);
-        window_release(ptr);
+        window_close(ptr);
     }
     
     linked_list_erase(&win->child);

@@ -77,7 +77,11 @@ int main(int argc, char *argv[]) {
             request.param.create_window.parent_window_id = parent;
             request.param.create_window.bg_color = color_new(r, g, b, 255);
         } else if (strcmp(command, "close") == 0) {
-            printf("sorry, unimplemented !\n");
+            int win;
+            printf("? win_id = "); fflush(stdout);
+            scanf("%d", &win);
+            request.type = TINYWS_REQUEST_CLOSE_WINDOW;
+            request.target_window_id = win;
         } else if (strcmp(command, "move") == 0) {
             int win, x, y;
             printf("? win_id, x, y = "); fflush(stdout);

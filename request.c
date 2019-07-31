@@ -85,6 +85,14 @@ void request_print(const struct Request *request) {
                     request->param.create_window.bg_color.a
                     );
             break;
+        case TINYWS_REQUEST_CLOSE_WINDOW:
+        {
+            printf("TINYWS_REQUEST_CLOSE_WINDOW(source=%d, target=%d)\n",
+                    request->source,
+                    request->target_window_id
+                    );
+            break;
+        }
         case TINYWS_REQUEST_SET_WINDOW_POS:
             printf("TINYWS_REQUEST_SET_WINDOW_POS(source=%d, target=%d, pos.x=%d, pos.y=%d)\n",
                     request->source,
@@ -190,6 +198,10 @@ size_t request_encode(const struct Request *request, uint8_t *out, size_t size) 
             color_encode(&request->param.create_window.bg_color, &nxt);
             break;
         }
+        case TINYWS_REQUEST_CLOSE_WINDOW:
+        {
+            break;
+        }
         case TINYWS_REQUEST_SET_WINDOW_POS:
         {
             point_encode(&request->param.set_window_pos.pos, &nxt);
@@ -289,6 +301,10 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
             READ_INT_LE(&buf, &ret.param.create_window.parent_window_id);
             rect_decode(&buf, &ret.param.create_window.rect);
             color_decode(&buf, &ret.param.create_window.bg_color);
+            break;
+        }
+        case TINYWS_REQUEST_CLOSE_WINDOW:
+        {
             break;
         }
         case TINYWS_REQUEST_SET_WINDOW_POS:

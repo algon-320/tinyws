@@ -145,6 +145,16 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
                 break;
             }
+            case TINYWS_REQUEST_CLOSE_WINDOW:
+            {
+                struct Window *win = window_get_by_id(request.target_window_id);
+                if (win == NULL) {
+                    resp.success = 0;
+                    break;
+                }
+                window_close(win);
+                break;
+            }
             case TINYWS_REQUEST_SET_WINDOW_POS:
             {
                 struct Window *win = window_get_by_id(request.target_window_id);
@@ -274,7 +284,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
     while (deque_size(&openning_windows)) {
         struct Window *win = DEQUE_TAKE(deque_back(&openning_windows), struct Window *);
         deque_pop_back(&openning_windows);
-        window_release(win);
+        window_close(win);
     }
     refresh_screen();
 
