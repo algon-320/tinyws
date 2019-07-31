@@ -114,7 +114,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         resp.dest = client->id;
 
         switch (request.type) {
-            // if it is a window management request, process her
+            // if it is a window management request, process here
             case TINYWS_REQUEST_CREATE_WINDOW:
             {
                 struct Window *parent_win = window_get_by_id(request.param.create_window.parent_window_id);
@@ -137,7 +137,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     // TODO: notify
                 }
 
-                // トップレベルウィンドウのみ記録
+                // top level window only
                 if (parent_win->id == 0) {
                     deque_push_back(&client->openning_windows, &win);
                 }

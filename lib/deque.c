@@ -161,5 +161,3 @@ void deque_pop_front(Deque *deq) {
         deq->front_idx += 1;
     }
 }
-
-// TODO erase and then shift
