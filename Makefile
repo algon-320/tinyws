@@ -1,13 +1,14 @@
 SERVER_REQUIRE_OBJS = lib.o display.o draw.o request.o response.o event.o tcp.o basic_structures.o window.o
 CC = gcc
 CFLAGS = -std=gnu99 -Wall -Wextra -g
+SDL2FLAGS = `sdl2-config --cflags --libs`
 
 all: server.out client_example.out
 clean:
 	rm *.out *.o
 
 server.out: server.c $(SERVER_REQUIRE_OBJS)
-	$(CC) server.c $(SERVER_REQUIRE_OBJS) -o server.out $(CFLAGS) -lpthread `sdl2-config --cflags --libs`
+	$(CC) server.c $(SERVER_REQUIRE_OBJS) -o server.out $(CFLAGS) -lpthread $(SDL2FLAGS)
 
 lib.o: lib_deque.o lib_emb_linked_list.o
 	ld -r $^ -o $@
@@ -35,4 +36,4 @@ window.o: window.c
 
 CLIENT_REQUIRE_OBJS = request.o response.o event.o tcp.o basic_structures.o
 client_example.out: client_example.c $(CLIENT_REQUIRE_OBJS)
-	$(CC) client_example.c $(CLIENT_REQUIRE_OBJS) -o client_example.out $(CFLAGS) `sdl2-config --cflags --libs`
+	$(CC) client_example.c $(CLIENT_REQUIRE_OBJS) -o client_example.out $(CFLAGS)  $(SDL2FLAGS)
