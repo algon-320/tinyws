@@ -37,13 +37,13 @@ struct Window *window_get_focused() {
     return focused;
 }
 
-void window_set_focus(uint32_t window_id) {
+void window_set_focus(window_id_t window_id) {
     struct Window *win = window_get_by_id(window_id);
     assert(win);
     focused = win;
 }
 
-struct Window *window_new(struct Window *parent, struct Display *disp, int32_t settion_id, int32_t window_manager, Rect rect, const char *title, Color bg_color) {
+struct Window *window_new(struct Window *parent, struct Display *disp, client_id_t client_id, client_id_t window_manager, Rect rect, const char *title, Color bg_color) {
     if (stack_empty(&free_win)) {
         size_t expand_len = deque_size(&windows);
         expand_windows(expand_len);
@@ -54,7 +54,7 @@ struct Window *window_new(struct Window *parent, struct Display *disp, int32_t s
 
     focused = win;
     win->parent = parent;
-    win->settion_id = settion_id;
+    win->client_id = client_id;
     win->window_manager = window_manager;
 
     linked_list_init(&win->next, NULL, NULL);
@@ -112,7 +112,7 @@ int window_release(struct Window *win) {
 
     focused = win->parent;
     win->window_manager = -1;
-    win->settion_id = -1;
+    win->client_id = -1;
 
     queue_free(&win->events);
 
@@ -128,8 +128,6 @@ int window_release(struct Window *win) {
 int window_draw(struct Window *win, struct Display *disp) {
     debugprint("window_draw: win=%d\n", win->id);
     if (win->visible) {
-        struct Window *p = win->parent;
-
         SDL_Rect rect;
         rect.x = win->pos.x;
         rect.y = win->pos.y;
@@ -179,9 +177,9 @@ int window_draw(struct Window *win, struct Display *disp) {
     return 0;
 }
 
-struct Window *window_get_by_id(uint32_t win_id) {
-    if (win_id < deque_size(&windows)) {
-        struct Window *win = deque_at(&windows, win_id);
+struct Window *window_get_by_id(window_id_t window_id) {
+    if (window_id < deque_size(&windows)) {
+        struct Window *win = deque_at(&windows, window_id);
         if (win->disp) {
             return win;
         }

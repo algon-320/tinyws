@@ -31,7 +31,7 @@ struct Display disp;
 struct Window *root_win;
 struct Window *overlay_win;
 
-Queue request_queue;
+Queue request_queue;  // <struct Request>
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
@@ -64,14 +64,16 @@ void refresh_screen() {
 
 struct interaction_thread_arg {
     int com;
-    int32_t connection_id;
+    client_id_t client_id;
 };
 int interaction_thread(struct interaction_thread_arg *arg) {
+    client_id_t client_id = arg->client_id;
+
     // print peer address
     {
-        struct sockaddr_storage addr ;
-        socklen_t addr_len ; /* MacOSX: __uint32_t */
-        addr_len = sizeof( addr );
+        struct sockaddr_storage addr;
+        socklen_t addr_len; /* MacOSX: __uint32_t */
+        addr_len = sizeof(addr);
         if (getpeername(arg->com, (struct sockaddr *)&addr, &addr_len) < 0) {
             perror("tcp_peeraddr_print");
         } else {
@@ -104,11 +106,14 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         fflush(stdout);
 
         struct Request request = request_decode(buf, BUFFSIZE);
+        request.source = client_id;
         request_print(&request);
+
 
         struct Response resp;
         resp.success = 1;
         resp.type = TINYWS_RESPONSE_NOCONTENT;
+        resp.dest = client_id;
 
         switch (request.type) {
             // if it is a window management request, process her
@@ -121,7 +126,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
 
                 struct Window *win = window_new(parent_win, &disp, 
-                        arg->connection_id,
+                        arg->client_id,
                         -1,
                         request.param.create_window.rect,
                         "test window",
@@ -129,6 +134,10 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                         );
                 resp.type = TINYWS_RESPONSE_WINDOW_ID;
                 resp.content.window_id.id = win->id;
+
+                if (parent_win->window_manager != -1) {
+                    // TODO: notify
+                }
 
                 // トップレベルウィンドウのみ記録
                 if (parent_win->id == 0) {
@@ -285,7 +294,7 @@ int wait_for_connection_thread(struct wait_for_connection_thread_arg *arg) {
         return -1;
     }
 
-    int32_t next_connection_id = 0;
+    client_id_t next_client_id = 0;
     while (1) {
         printf("[%d] acception incoming connections (acc == %d) ...\n", getpid(), acc);
         if ((com = accept(acc, 0, 0)) < 0) {
@@ -294,7 +303,7 @@ int wait_for_connection_thread(struct wait_for_connection_thread_arg *arg) {
         }
         struct interaction_thread_arg arg;
         arg.com = com;
-        arg.connection_id = next_connection_id++;
+        arg.client_id = next_client_id++;
         pthread_t com_thread_id;
         if (pthread_create(&com_thread_id, NULL, (void *)interaction_thread, (void *)&arg) != 0) {
             perror("pthread_create(): communication");
@@ -377,10 +386,6 @@ int event_thread() {
 
                     debugprint("event push: id=%d ", focused_win->id);
                     event_print(&tinyws_event);
-                } else {
-                    // change window focuse
-                    struct Window *win = root_win;
-                    
                 }
                 break;
             }

@@ -60,4 +60,8 @@
     #define debugprint(...) do { fprintf(stderr, "\x1b[33;1m"); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\x1b[0m"); } while (0)
 #endif
 
+// types
+typedef int32_t client_id_t;
+typedef uint32_t window_id_t;
+
 #endif

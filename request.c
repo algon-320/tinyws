@@ -7,7 +7,8 @@
 void request_print(const struct Request *request) {
     switch (request->type) {
         case TINYWS_REQUEST_DRAW_RECT:
-            printf("TINYWS_REQUEST_DRAW_RECT(target=%d, x=%d, y=%d, w=%d, h=%d, color=(%d, %d, %d, %d))\n",
+            printf("TINYWS_REQUEST_DRAW_RECT(source=%d, target=%d, x=%d, y=%d, w=%d, h=%d, color=(%d, %d, %d, %d))\n",
+                    request->source,
                     request->target_window_id,
                     request->param.draw_rect.rect.x,
                     request->param.draw_rect.rect.y,
@@ -20,7 +21,8 @@ void request_print(const struct Request *request) {
                     );
             break;
         case TINYWS_REQUEST_DRAW_CIRCLE:
-            printf("TINYWS_REQUEST_DRAW_CIRCLE(target=%d, x=%d, y=%d, radius=%d, filled=%d, color=(%d, %d, %d, %d))\n",
+            printf("TINYWS_REQUEST_DRAW_CIRCLE(source=%d, target=%d, x=%d, y=%d, radius=%d, filled=%d, color=(%d, %d, %d, %d))\n",
+                    request->source,
                     request->target_window_id,
                     request->param.draw_circle.center.x,
                     request->param.draw_circle.center.y,
@@ -33,7 +35,8 @@ void request_print(const struct Request *request) {
                     );
             break;
         case TINYWS_REQUEST_DRAW_LINE:
-            printf("TINYWS_REQUEST_DRAW_LINE(target=%d, x1=%d, y1=%d, x2=%d, y2=%d, color=(%d, %d, %d, %d))\n",
+            printf("TINYWS_REQUEST_DRAW_LINE(source=%d, target=%d, x1=%d, y1=%d, x2=%d, y2=%d, color=(%d, %d, %d, %d))\n",
+                    request->source,
                     request->target_window_id,
                     request->param.draw_line.p1.x,
                     request->param.draw_line.p1.y,
@@ -46,7 +49,8 @@ void request_print(const struct Request *request) {
                     );
             break;  
         case TINYWS_REQUEST_DRAW_PIXEL:
-            printf("TINYWS_REQUEST_DRAW_PIXEL(target=%d, x=%d, y=%d, color=(%d, %d, %d, %d))\n",
+            printf("TINYWS_REQUEST_DRAW_PIXEL(source=%d, target=%d, x=%d, y=%d, color=(%d, %d, %d, %d))\n",
+                    request->source,
                     request->target_window_id,
                     request->param.draw_pixel.p.x,
                     request->param.draw_pixel.p.y,
@@ -57,15 +61,19 @@ void request_print(const struct Request *request) {
                     );
             break;
         case TINYWS_REQUEST_CLEAR_WINDOW:
-            printf("TINYWS_REQUEST_CLEAR_WINDOW(target=%d)\n",
+            printf("TINYWS_REQUEST_CLEAR_WINDOW(source=%d, target=%d)\n",
+                    request->source,
                     request->target_window_id
                     );
             break;
         case TINYWS_REQUEST_REFRESH:
-            printf("TINYWS_REQUEST_REFRESH\n");
+            printf("TINYWS_REQUEST_REFRESH(source=%d)\n",
+                    request->source
+                    );
             break;
         case TINYWS_REQUEST_CREATE_WINDOW:
-            printf("TINYWS_REQUEST_CREATE_WINDOW(pwid=%d, width=%d, height=%d, pos_x=%d, pos_y=%d, bg_color=(%d, %d, %d, %d))\n",
+            printf("TINYWS_REQUEST_CREATE_WINDOW(source=%d, pwid=%d, width=%d, height=%d, pos_x=%d, pos_y=%d, bg_color=(%d, %d, %d, %d))\n",
+                    request->source,
                     request->param.create_window.parent_window_id,
                     request->param.create_window.rect.width,
                     request->param.create_window.rect.height,
@@ -78,46 +86,54 @@ void request_print(const struct Request *request) {
                     );
             break;
         case TINYWS_REQUEST_SET_WINDOW_POS:
-            printf("TINYWS_REQUEST_SET_WINDOW_POS(target=%d, pos.x=%d, pos.y=%d)\n",
+            printf("TINYWS_REQUEST_SET_WINDOW_POS(source=%d, target=%d, pos.x=%d, pos.y=%d)\n",
+                    request->source,
                     request->target_window_id,
                     request->param.set_window_pos.pos.x,
                     request->param.set_window_pos.pos.y
                     );
             break;
         case TINYWS_REQUEST_SET_WINDOW_VISIBILITY:
-            printf("TINYWS_REQUEST_SET_WINDOW_VISIBILITY(target=%d, visible=%d)\n",
+            printf("TINYWS_REQUEST_SET_WINDOW_VISIBILITY(source=%d, target=%d, visible=%d)\n",
+                    request->source,
                     request->target_window_id,
                     request->param.set_window_visibility.visible
                     );
             break;
         case TINYWS_REQUEST_MOVE_WINDOW_TOP:
-            printf("TINYWS_REQUEST_MOVE_WINDOW_TOP(target=%d)\n",
+            printf("TINYWS_REQUEST_MOVE_WINDOW_TOP(source=%d, target=%d)\n",
+                    request->source,
                     request->target_window_id
                     );
             break;
         case TINYWS_REQUEST_SET_FOCUS:
-            printf("TINYWS_REQUEST_FOCUS(target=%d)\n",
+            printf("TINYWS_REQUEST_FOCUS(source=%d, target=%d)\n",
+                    request->source,
                     request->target_window_id
                     );
             break;
         case TINYWS_REQUEST_WINDOW_REPARENT:
-            printf("TINYWS_REQUEST_WINDOW_REPARENT(target=%d, parent=%d)\n",
+            printf("TINYWS_REQUEST_WINDOW_REPARENT(source=%d, target=%d, parent=%d)\n",
+                    request->source,
                     request->target_window_id,
                     request->param.reparent.parent_window_id
                     );
             break;
         case TINYWS_REQUEST_APPLY_FOR_WM:
-            printf("TINYWS_REQUEST_APPLY_FOR_WM(target=%d)\n",
+            printf("TINYWS_REQUEST_APPLY_FOR_WM(source=%d, target=%d)\n",
+                    request->source,
                     request->target_window_id
                     );
             break;
         case TINYWS_REQUEST_GET_EVENT:
-            printf("TINYWS_REQUEST_GET_EVENT(target=%d)\n",
+            printf("TINYWS_REQUEST_GET_EVENT(source=%d, target=%d)\n",
+                    request->source,
                     request->target_window_id
                     );
             break;
         case TINYWS_REQUEST_INVALID:
-            printf("TINYWS_REQUEST_INVALID\n");
+            printf("TINYWS_REQUEST_INVALID(source=%d)\n",
+                    request->source);
             break;
     }
 }

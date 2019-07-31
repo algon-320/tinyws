@@ -4,26 +4,27 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "common.h"
 #include "event.h"
 
 typedef enum {
     TINYWS_RESPONSE_NOCONTENT,
     TINYWS_RESPONSE_WINDOW_ID,
     TINYWS_RESPONSE_EVENT_NOTIFY,
+    TINYWS_WM_EVNET_NOTIFY_CREATE_WINDOW,
 } ResponseType;
 
-typedef enum {
-    TINYWS_WM_EVNET_NOTIFY_CREATE_WINDOW,
-    TINYWS_WM_EVNET_NOTIFY_RESIZE_WINDOW,
-} WindowManagerEventType;
-
 struct Response {
-    uint8_t success;
     ResponseType type;
+    uint8_t success;
+    client_id_t dest;
     union {
         struct {
-            uint32_t id;
+            window_id_t id;
         } window_id;
+        struct {
+            window_id_t window_id;
+        } wm_event_notify_create_window;
         struct Event event;
     } content;
 };

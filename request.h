@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "common.h"
 #include "basic_structures.h"
 
 typedef enum {
@@ -33,7 +34,8 @@ typedef enum {
 
 struct Request {
     RequestType type;
-    uint32_t target_window_id;
+    window_id_t target_window_id;
+    client_id_t source;
     union {
         struct {
             Rect rect;
@@ -55,7 +57,7 @@ struct Request {
             Color color;
         } draw_pixel;
         struct {
-            uint32_t parent_window_id;
+            window_id_t parent_window_id;
             Rect rect;
             Color bg_color;
         } create_window;
@@ -66,7 +68,7 @@ struct Request {
             uint8_t visible;
         } set_window_visibility;
         struct {
-            uint32_t parent_window_id;
+            window_id_t parent_window_id;
         } reparent;
     } param;
 };
