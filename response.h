@@ -12,6 +12,11 @@ typedef enum {
     TINYWS_RESPONSE_EVENT_NOTIFY,
 } ResponseType;
 
+typedef enum {
+    TINYWS_WM_EVNET_NOTIFY_CREATE_WINDOW,
+    TINYWS_WM_EVNET_NOTIFY_RESIZE_WINDOW,
+} WindowManagerEventType;
+
 struct Response {
     uint8_t success;
     ResponseType type;

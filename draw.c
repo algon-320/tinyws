@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include "common.h"
 #include "draw.h"

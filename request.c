@@ -91,18 +91,30 @@ void request_print(const struct Request *request) {
                     );
             break;
         case TINYWS_REQUEST_MOVE_WINDOW_TOP:
-            printf("TINYWS_REQUEST_MOVE_WINDOW_TOP\n");
+            printf("TINYWS_REQUEST_MOVE_WINDOW_TOP(target=%d)\n",
+                    request->target_window_id
+                    );
             break;
         case TINYWS_REQUEST_SET_FOCUS:
-            printf("TINYWS_REQUEST_FOCUS\n");
+            printf("TINYWS_REQUEST_FOCUS(target=%d)\n",
+                    request->target_window_id
+                    );
             break;
         case TINYWS_REQUEST_WINDOW_REPARENT:
-            printf("TINYWS_REQUEST_WINDOW_REPARENT(parent=%d)\n",
+            printf("TINYWS_REQUEST_WINDOW_REPARENT(target=%d, parent=%d)\n",
+                    request->target_window_id,
                     request->param.reparent.parent_window_id
                     );
             break;
+        case TINYWS_REQUEST_APPLY_FOR_WM:
+            printf("TINYWS_REQUEST_APPLY_FOR_WM(target=%d)\n",
+                    request->target_window_id
+                    );
+            break;
         case TINYWS_REQUEST_GET_EVENT:
-            printf("TINYWS_REQUEST_GET_EVENT\n");
+            printf("TINYWS_REQUEST_GET_EVENT(target=%d)\n",
+                    request->target_window_id
+                    );
             break;
         case TINYWS_REQUEST_INVALID:
             printf("TINYWS_REQUEST_INVALID\n");
@@ -182,6 +194,10 @@ size_t request_encode(const struct Request *request, uint8_t *out, size_t size) 
             break;
         }
         case TINYWS_REQUEST_MOVE_WINDOW_TOP:
+        {
+            break;
+        }
+        case TINYWS_REQUEST_APPLY_FOR_WM:
         {
             break;
         }
@@ -282,6 +298,10 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
             break;
         }
         case TINYWS_REQUEST_MOVE_WINDOW_TOP:
+        {
+            break;
+        }
+        case TINYWS_REQUEST_APPLY_FOR_WM:
         {
             break;
         }

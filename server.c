@@ -1,4 +1,4 @@
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -121,6 +121,8 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
 
                 struct Window *win = window_new(parent_win, &disp, 
+                        arg->connection_id,
+                        -1,
                         request.param.create_window.rect,
                         "test window",
                         request.param.create_window.bg_color
@@ -184,6 +186,20 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     break;
                 }
                 window_move_top(win);
+                break;
+            }
+
+            case TINYWS_REQUEST_APPLY_FOR_WM:
+            {
+                struct Window *win = window_get_by_id(request.target_window_id);
+                if (win == NULL) {
+                    resp.success = 0;
+                    break;
+                }
+                if (win->window_manager != -1) {
+                    resp.success = 0;
+                    break;
+                }
                 break;
             }
 
@@ -256,6 +272,36 @@ int interaction_thread(struct interaction_thread_arg *arg) {
     printf("connection closed.\n");
     fclose(in);
     fclose(out);
+    return 0;
+}
+
+struct wait_for_connection_thread_arg {
+    int portno;
+};
+int wait_for_connection_thread(struct wait_for_connection_thread_arg *arg) {
+    int com;
+    int acc = tcp_acc_port(arg->portno, 4);
+    if (acc < 0) {
+        return -1;
+    }
+
+    int32_t next_connection_id = 0;
+    while (1) {
+        printf("[%d] acception incoming connections (acc == %d) ...\n", getpid(), acc);
+        if ((com = accept(acc, 0, 0)) < 0) {
+            perror("accept");
+            continue;
+        }
+        struct interaction_thread_arg arg;
+        arg.com = com;
+        arg.connection_id = next_connection_id++;
+        pthread_t com_thread_id;
+        if (pthread_create(&com_thread_id, NULL, (void *)interaction_thread, (void *)&arg) != 0) {
+            perror("pthread_create(): communication");
+            continue;
+        }
+        pthread_detach(com_thread_id);
+    }
     return 0;
 }
 
@@ -397,7 +443,60 @@ static uint32_t mouse_cursor_bitmap[16][16] = {
 	{0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0},
 };
 
-int drawing_thread() {
+int init() {
+    SDL_CALL_NONNEG(SDL_Init, SDL_INIT_VIDEO);
+    SDL_ShowCursor(SDL_DISABLE);
+
+    const int DISPLAY_WIDTH  = 1280;
+    const int DISPLAY_HEIGHT = 960;
+    
+    if (display_new(&disp, size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "tinyws virtual display") < 0) {
+        return -1;
+    }
+
+    window_subsystem_init();
+
+    request_queue = queue_new(sizeof(struct Request));
+    
+    // root window
+    root_win = window_new(NULL, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
+    // overlay window
+    overlay_win = window_new(NULL, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
+    linked_list_insert_next(&root_win->next, &overlay_win->next);
+
+    window_set_focus(root_win->id);
+
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s portno\n", argv[0]);
+        return 1;
+    }
+
+    int exit_status = 0;
+    if (init() < 0) {
+        return -1;
+    }
+
+    pthread_t event_thread_id;
+    if (pthread_create(&event_thread_id, NULL, (void *)event_thread, NULL) != 0) {
+        perror("pthread_create(): drawing");
+        exit_status = -1;
+        goto EXIT_QUIT;
+    }
+
+    pthread_t wait_for_connection_thread_id;
+    struct wait_for_connection_thread_arg arg;
+    arg.portno = strtol(argv[1], NULL, 10);
+    if (pthread_create(&wait_for_connection_thread_id, NULL, (void *)wait_for_connection_thread, &arg) != 0) {
+        perror("pthread_create(): drawing");
+        exit_status = -1;
+        goto EXIT_QUIT;
+    }
+
+    // drawing
     while (1) {
         struct Request request;
         {
@@ -541,88 +640,7 @@ int drawing_thread() {
 
     display_release(&disp);
     queue_free(&request_queue);
-    return 0;
-}
 
-
-int init() {
-    SDL_CALL_NONNEG(SDL_Init, SDL_INIT_VIDEO);
-    SDL_ShowCursor(SDL_DISABLE);
-
-    const int DISPLAY_WIDTH  = 1280;
-    const int DISPLAY_HEIGHT = 960;
-    
-    if (display_new(&disp, size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "tinyws virtual display") < 0) {
-        return -1;
-    }
-
-    window_subsystem_init();
-
-    request_queue = queue_new(sizeof(struct Request));
-    
-    // root window
-    root_win = window_new(NULL, &disp, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
-    // overlay window
-    overlay_win = window_new(NULL, &disp, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
-    linked_list_insert_next(&root_win->next, &overlay_win->next);
-
-    window_set_focus(root_win->id);
-
-    return 0;
-}
-
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s portno\n", argv[0]);
-        return 1;
-    }
-
-    int exit_status = 0;
-    if (init() < 0) {
-        return -1;
-    }
-
-    int com;
-    int portno = strtol(argv[1], NULL, 10);
-    int acc = tcp_acc_port(portno, 4);
-    if (acc < 0) {
-        exit_status = -1;
-        goto EXIT_QUIT;
-    }
-
-    pthread_t drawing_thread_id;
-    if (pthread_create(&drawing_thread_id, NULL, (void *)drawing_thread, NULL) != 0) {
-        perror("pthread_create(): drawing");
-        exit_status = -1;
-        goto EXIT_QUIT;
-    }
-
-    pthread_t event_thread_id;
-    if (pthread_create(&event_thread_id, NULL, (void *)event_thread, NULL) != 0) {
-        perror("pthread_create(): drawing");
-        exit_status = -1;
-        goto EXIT_QUIT;
-    }
-
-    int32_t next_connection_id = 0;
-    while (1) {
-        printf("[%d] acception incoming connections (acc == %d) ...\n", getpid(), acc);
-        if ((com = accept(acc, 0, 0)) < 0) {
-            perror("accept");
-            continue;
-        }
-        struct interaction_thread_arg arg;
-        arg.com = com;
-        arg.connection_id = next_connection_id++;
-        pthread_t com_thread_id;
-        if (pthread_create(&com_thread_id, NULL, (void *)interaction_thread, (void *)&arg) != 0) {
-            perror("pthread_create(): communication");
-            continue;
-        }
-        pthread_detach(com_thread_id);
-    }
-
-    pthread_join(drawing_thread_id, NULL);
     pthread_join(event_thread_id, NULL);
 
     exit_status = 0;

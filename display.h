@@ -1,7 +1,7 @@
 #ifndef INCLUDE_GUARD_DISPLAY_H
 #define INCLUDE_GUARD_DISPLAY_H
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include "basic_structures.h"
 

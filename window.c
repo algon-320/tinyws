@@ -43,7 +43,7 @@ void window_set_focus(uint32_t window_id) {
     focused = win;
 }
 
-struct Window *window_new(struct Window *parent, struct Display *disp, Rect rect, const char *title, Color bg_color) {
+struct Window *window_new(struct Window *parent, struct Display *disp, int32_t settion_id, int32_t window_manager, Rect rect, const char *title, Color bg_color) {
     if (stack_empty(&free_win)) {
         size_t expand_len = deque_size(&windows);
         expand_windows(expand_len);
@@ -54,6 +54,8 @@ struct Window *window_new(struct Window *parent, struct Display *disp, Rect rect
 
     focused = win;
     win->parent = parent;
+    win->settion_id = settion_id;
+    win->window_manager = window_manager;
 
     linked_list_init(&win->next, NULL, NULL);
     linked_list_init(&win->child, NULL, NULL);
@@ -109,6 +111,8 @@ int window_release(struct Window *win) {
     linked_list_erase(&win->next);
 
     focused = win->parent;
+    win->window_manager = -1;
+    win->settion_id = -1;
 
     queue_free(&win->events);
 

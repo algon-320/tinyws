@@ -1,7 +1,7 @@
 #ifndef INCLUDE_GUARD_DRAW_H
 #define INCLUDE_GUARD_DRAW_H
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include "basic_structures.h"
 #include "window.h"
