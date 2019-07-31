@@ -122,7 +122,7 @@ int window_close(struct Window *win) {
 }
 
 int window_draw(struct Window *win, struct Display *disp) {
-    debugprint("window_draw: win=%d\n", win->id);
+    // debugprint("window_draw: win=%d\n", win->id);
     if (win->visible) {
         SDL_Rect rect;
         rect.x = win->pos.x;
@@ -131,15 +131,15 @@ int window_draw(struct Window *win, struct Display *disp) {
         rect.h = win->size.height;
 
         // draw a frame for the focused window
-        if (focused == win) {
-            SDL_Rect tmp = rect;
-            tmp.x -= 2;
-            tmp.y -= 2;
-            tmp.w += 4;
-            tmp.h += 4;
-            SDL_SetRenderDrawColor(win->disp->ren, 255, 0, 0, 255);
-            SDL_RenderDrawRect(win->disp->ren, &tmp);
-        }
+        // if (focused == win) {
+        //     SDL_Rect tmp = rect;
+        //     tmp.x -= 2;
+        //     tmp.y -= 2;
+        //     tmp.w += 4;
+        //     tmp.h += 4;
+        //     SDL_SetRenderDrawColor(win->disp->ren, 255, 0, 0, 255);
+        //     SDL_RenderDrawRect(win->disp->ren, &tmp);
+        // }
 
         SDL_Texture *parent_buffer = SDL_GetRenderTarget(disp->ren);
 

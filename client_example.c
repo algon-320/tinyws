@@ -73,8 +73,8 @@ int main(int argc, char *argv[]) {
             scanf("%d %d %d", &r, &g, &b);
 
             request.type = TINYWS_REQUEST_CREATE_WINDOW;
+            request.target_window_id = parent;
             request.param.create_window.rect = rect_new(x, y, w, h);
-            request.param.create_window.parent_window_id = parent;
             request.param.create_window.bg_color = color_new(r, g, b, 255);
         } else if (strcmp(command, "close") == 0) {
             int win;

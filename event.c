@@ -43,6 +43,16 @@ void event_print(const struct Event *event) {
     case TINYWS_EVENT_KEY_UP:
         // TODO
         break;
+    case TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW:
+        printf("TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW(win=%d, client_win_id=%d, rect=(x=%d, y=%d, w=%d, h=%d))\n",
+                event->window_id,
+                event->param.wm_event_notify.client_window_id,
+                event->param.wm_event_notify.rect.x,
+                event->param.wm_event_notify.rect.y,
+                event->param.wm_event_notify.rect.width,
+                event->param.wm_event_notify.rect.height
+                );
+        break;
     default:
         printf("invalid event type\n");
         break;
@@ -70,6 +80,13 @@ size_t event_encode(const struct Event *event, uint8_t **out) {
             WRITE_ENUM_LE(event->param.keyboard.keycode, &nxt);
             break;
         }
+
+        case TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW:
+        {
+            WRITE_INT_LE(event->param.wm_event_notify.client_window_id, &nxt);
+            rect_encode(&event->param.wm_event_notify.rect, &nxt);
+            break;
+        }
     }
     *out = nxt;
     return (nxt - *out);
@@ -94,6 +111,13 @@ struct Event event_decode(const uint8_t **in) {
         case TINYWS_EVENT_KEY_UP:
         {
             READ_ENUM_LE(in, &event.param.keyboard.keycode);
+            break;
+        }
+        
+        case TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW:
+        {
+            READ_INT_LE(in, &event.param.wm_event_notify.client_window_id);
+            rect_decode(in, &event.param.wm_event_notify.rect);
             break;
         }
     }

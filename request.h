@@ -58,7 +58,6 @@ struct Request {
             Color color;
         } draw_pixel;
         struct {
-            window_id_t parent_window_id;
             Rect rect;
             Color bg_color;
         } create_window;

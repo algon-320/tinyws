@@ -72,9 +72,9 @@ void request_print(const struct Request *request) {
                     );
             break;
         case TINYWS_REQUEST_CREATE_WINDOW:
-            printf("TINYWS_REQUEST_CREATE_WINDOW(source=%d, pwid=%d, width=%d, height=%d, pos_x=%d, pos_y=%d, bg_color=(%d, %d, %d, %d))\n",
+            printf("TINYWS_REQUEST_CREATE_WINDOW(source=%d, target=%d, width=%d, height=%d, pos_x=%d, pos_y=%d, bg_color=(%d, %d, %d, %d))\n",
                     request->source,
-                    request->param.create_window.parent_window_id,
+                    request->target_window_id,
                     request->param.create_window.rect.width,
                     request->param.create_window.rect.height,
                     request->param.create_window.rect.x,
@@ -193,7 +193,6 @@ size_t request_encode(const struct Request *request, uint8_t *out, size_t size) 
         // Window management
         case TINYWS_REQUEST_CREATE_WINDOW:
         {
-            WRITE_INT_LE(request->param.create_window.parent_window_id, &nxt);
             rect_encode(&request->param.create_window.rect, &nxt);
             color_encode(&request->param.create_window.bg_color, &nxt);
             break;
@@ -298,7 +297,6 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
         case TINYWS_REQUEST_CREATE_WINDOW:
         {
             ret.type = TINYWS_REQUEST_CREATE_WINDOW;
-            READ_INT_LE(&buf, &ret.param.create_window.parent_window_id);
             rect_decode(&buf, &ret.param.create_window.rect);
             color_decode(&buf, &ret.param.create_window.bg_color);
             break;

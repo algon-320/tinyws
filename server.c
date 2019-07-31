@@ -109,17 +109,17 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
 
         struct Response resp;
-        resp.success = 1;
-        resp.type = TINYWS_RESPONSE_NOCONTENT;
         resp.dest = client->id;
 
         switch (request.type) {
             // if it is a window management request, process here
             case TINYWS_REQUEST_CREATE_WINDOW:
             {
-                struct Window *parent_win = window_get_by_id(request.param.create_window.parent_window_id);
+                
+                struct Window *parent_win = window_get_by_id(request.target_window_id);
                 if (parent_win == NULL) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
 
@@ -130,11 +130,22 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                         "test window",
                         request.param.create_window.bg_color
                         );
+
+                resp.success = 1;
                 resp.type = TINYWS_RESPONSE_WINDOW_ID;
                 resp.content.window_id.id = win->id;
 
-                if (parent_win->window_manager != -1) {
-                    // TODO: notify
+                // send event to the window manager
+                if (parent_win->window_manager != -1 && parent_win->window_manager != client->id) {
+                    struct Client *window_manager = client_get_by_id(parent_win->window_manager);
+                    assert(window_manager != NULL);
+                    struct Event wm_notify;
+                    wm_notify.type = TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW;
+                    wm_notify.window_id = parent_win->id;
+                    wm_notify.param.wm_event_notify.client_window_id = win->id;
+                    wm_notify.param.wm_event_notify.rect = rect_new(win->pos.x, win->pos.y, win->size.width, win->size.height);
+                    client_send_event(window_manager, &wm_notify);
+                    debugprint("send wm notify\n");
                 }
 
                 // top level window only
@@ -148,9 +159,13 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 struct Window *win = window_get_by_id(request.target_window_id);
                 if (win == NULL) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
                 window_close(win);
+                
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
             case TINYWS_REQUEST_SET_WINDOW_POS:
@@ -158,11 +173,15 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 struct Window *win = window_get_by_id(request.target_window_id);
                 if (win == NULL) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
 
                 win->pos.x = request.param.set_window_pos.pos.x;
                 win->pos.y = request.param.set_window_pos.pos.y;
+
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
             case TINYWS_REQUEST_SET_WINDOW_VISIBILITY:
@@ -170,9 +189,13 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 struct Window *win = window_get_by_id(request.target_window_id);
                 if (win == NULL) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
                 win->visible = request.param.set_window_visibility.visible;
+
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
             case TINYWS_REQUEST_WINDOW_REPARENT:
@@ -180,19 +203,27 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 struct Window *win = window_get_by_id(request.target_window_id);
                 if (win == NULL) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
                 struct Window *parent = window_get_by_id(request.param.reparent.parent_window_id);
                 if (parent == NULL) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
                 window_reparent(win, parent);
+
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
             case TINYWS_REQUEST_SET_FOCUS:
             {
                 window_set_focus(request.target_window_id);
+
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
             case TINYWS_REQUEST_MOVE_WINDOW_TOP:
@@ -200,9 +231,13 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 struct Window *win = window_get_by_id(request.target_window_id);
                 if (win == NULL) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
                 window_move_top(win);
+
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
 
@@ -211,24 +246,33 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 struct Window *win = window_get_by_id(request.target_window_id);
                 if (win == NULL) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
                 if (win->window_manager != -1) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
+
+                win->window_manager = client->id;
+
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
 
             case TINYWS_REQUEST_GET_EVENT:
             {
-                struct Window *win = window_get_by_id(request.target_window_id);
-                if (win == NULL) {
+                if (queue_empty(&client->events)) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
-                // TODO: check win is one of openning_windows
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_EVENT_NOTIFY;
                 resp.content.event_notify.event = DEQUE_TAKE(queue_front(&client->events), struct Event);
+                queue_pop(&client->events);
                 break;
             }
 
@@ -258,11 +302,15 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     fprintf(stderr, "can not lock\n");
                     break;
                 }
+
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
             default:
             {
                 resp.success = 0;
+                resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
         }

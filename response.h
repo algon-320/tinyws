@@ -11,7 +11,6 @@ typedef enum {
     TINYWS_RESPONSE_NOCONTENT,
     TINYWS_RESPONSE_WINDOW_ID,
     TINYWS_RESPONSE_EVENT_NOTIFY,
-    TINYWS_WM_EVNET_NOTIFY_CREATE_WINDOW,
 } ResponseType;
 
 struct Response {
@@ -22,9 +21,6 @@ struct Response {
         struct {
             window_id_t id;
         } window_id;
-        struct {
-            window_id_t window_id;
-        } wm_event_notify_create_window;
         struct {
             struct Event event;
         } event_notify;
