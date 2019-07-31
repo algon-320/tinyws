@@ -25,7 +25,9 @@ struct Response {
         struct {
             window_id_t window_id;
         } wm_event_notify_create_window;
-        struct Event event;
+        struct {
+            struct Event event;
+        } event_notify;
     } content;
 };
 

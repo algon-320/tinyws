@@ -25,7 +25,7 @@ void response_print(const struct Response *resp) {
         }
         case TINYWS_RESPONSE_EVENT_NOTIFY:
         {
-            printf("TINYES_RESPONSE_EVENT_NOTIFY\n");
+            printf("TINYES_RESPONSE_EVENT_NOTIFY()\n");
             break;
         }
         case TINYWS_WM_EVNET_NOTIFY_CREATE_WINDOW:
@@ -56,7 +56,7 @@ size_t response_encode(const struct Response *resp, uint8_t *out, size_t size) {
         }
         case TINYWS_RESPONSE_EVENT_NOTIFY:
         {
-            event_encode(&resp->content.event, &nxt);
+            event_encode(&resp->content.event_notify.event, &nxt);
             break;
         }
         case TINYWS_WM_EVNET_NOTIFY_CREATE_WINDOW:
@@ -87,7 +87,7 @@ struct Response response_decode(const uint8_t *buf, size_t size) {
         }
         case TINYWS_RESPONSE_EVENT_NOTIFY:
         {
-            ret.content.event = event_decode(&buf);
+            ret.content.event_notify.event = event_decode(&buf);
             break;
         }
         case TINYWS_WM_EVNET_NOTIFY_CREATE_WINDOW:

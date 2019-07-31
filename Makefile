@@ -1,4 +1,4 @@
-SERVER_REQUIRE_OBJS = lib.o display.o draw.o request.o response.o event.o tcp.o basic_structures.o window.o
+SERVER_REQUIRE_OBJS = lib.o display.o draw.o request.o response.o event.o tcp.o basic_structures.o window.o client.o
 CC = gcc
 CFLAGS = -std=gnu99 -Wall -Wextra -g `sdl2-config --cflags --libs`
 
@@ -31,6 +31,8 @@ event.o: event.c
 tcp.o: tcp.c
 	$(CC) $(CFLAGS) -c $^ -o $@
 window.o: window.c
+	$(CC) $(CFLAGS) -c $^ -o $@
+client.o: client.c
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 CLIENT_REQUIRE_OBJS = request.o response.o event.o tcp.o basic_structures.o

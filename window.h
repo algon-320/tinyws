@@ -19,7 +19,6 @@ struct Window {
     uint8_t visible;
     char title[256];
     Color background_color;
-    Queue events;  // <struct Event>
     LinkedList child;  // <struct Window *>
     LinkedList next;   // <struct Window *>
     SDL_Texture *buffer;

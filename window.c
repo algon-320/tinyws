@@ -83,8 +83,6 @@ struct Window *window_new(struct Window *parent, struct Display *disp, client_id
         return NULL;
     }
 
-    win->events = queue_new(sizeof(struct Event));
-
     win->pos = point_new(rect.x, rect.y);
     win->size = size_new(rect.width, rect.height);
     win->background_color = bg_color;
@@ -113,8 +111,6 @@ int window_close(struct Window *win) {
     focused = win->parent;
     win->window_manager = -1;
     win->client_id = -1;
-
-    queue_free(&win->events);
 
     SDL_DestroyTexture(win->buffer);
     win->parent = NULL;

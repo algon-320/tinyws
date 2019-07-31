@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "window.h"
+
 enum EventType {
     TINYWS_EVENT_MOUSE_DOWN,
     TINYWS_EVENT_MOUSE_UP,
@@ -28,6 +30,7 @@ enum KeyCode {
 
 struct Event {
     enum EventType type;
+    window_id_t window_id;
     union {
         struct Mouse {
             enum MouseButton button;

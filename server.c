@@ -26,6 +26,7 @@
 #include "request.h"
 #include "response.h"
 #include "window.h"
+#include "client.h"
 
 struct Display disp;
 struct Window *root_win;
@@ -52,6 +53,7 @@ void refresh_screen() {
     {
         struct Request request;
         request.type = TINYWS_REQUEST_REFRESH;
+        request.source = -1;
         queue_push(&request_queue, &request);
         pthread_cond_signal(&cond);
     }
@@ -64,11 +66,8 @@ void refresh_screen() {
 
 struct interaction_thread_arg {
     int com;
-    client_id_t client_id;
 };
 int interaction_thread(struct interaction_thread_arg *arg) {
-    client_id_t client_id = arg->client_id;
-
     // print peer address
     {
         struct sockaddr_storage addr;
@@ -93,8 +92,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         exit(1);
     }
 
-    // <struct Window *>
-    Deque openning_windows = deque_new(0, sizeof(struct Window *));
+    struct Client *client = client_new();
 
     while (receive_request(buf, BUFFSIZE, in) >= 0) {
         // printf("receive %d bytes: %s\n", rcount, buf);
@@ -106,14 +104,14 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         fflush(stdout);
 
         struct Request request = request_decode(buf, BUFFSIZE);
-        request.source = client_id;
+        request.source = client->id;
         request_print(&request);
 
 
         struct Response resp;
         resp.success = 1;
         resp.type = TINYWS_RESPONSE_NOCONTENT;
-        resp.dest = client_id;
+        resp.dest = client->id;
 
         switch (request.type) {
             // if it is a window management request, process her
@@ -126,7 +124,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
 
                 struct Window *win = window_new(parent_win, &disp, 
-                        arg->client_id,
+                        client->id,
                         -1,
                         request.param.create_window.rect,
                         "test window",
@@ -141,7 +139,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
                 // トップレベルウィンドウのみ記録
                 if (parent_win->id == 0) {
-                    deque_push_back(&openning_windows, &win);
+                    deque_push_back(&client->openning_windows, &win);
                 }
                 break;
             }
@@ -230,11 +228,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     break;
                 }
                 // TODO: check win is one of openning_windows
-                if (queue_size(&win->events)) {
-                    resp.content.event = DEQUE_TAKE(queue_front(&win->events), struct Event);
-                    queue_pop(&win->events);
-                    resp.type = TINYWS_RESPONSE_EVENT_NOTIFY;
-                }
+                resp.content.event_notify.event = DEQUE_TAKE(queue_front(&client->events), struct Event);
                 break;
             }
 
@@ -280,12 +274,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         fwrite(response_buf, sizeof(uint8_t), BUFFSIZE, out);
     }
 
-    // このクライアントに紐付いたウィンドウを閉じる
-    while (deque_size(&openning_windows)) {
-        struct Window *win = DEQUE_TAKE(deque_back(&openning_windows), struct Window *);
-        deque_pop_back(&openning_windows);
-        window_close(win);
-    }
+    client_close(client);
     refresh_screen();
 
     printf("connection closed.\n");
@@ -304,7 +293,6 @@ int wait_for_connection_thread(struct wait_for_connection_thread_arg *arg) {
         return -1;
     }
 
-    client_id_t next_client_id = 0;
     while (1) {
         printf("[%d] acception incoming connections (acc == %d) ...\n", getpid(), acc);
         if ((com = accept(acc, 0, 0)) < 0) {
@@ -313,7 +301,6 @@ int wait_for_connection_thread(struct wait_for_connection_thread_arg *arg) {
         }
         struct interaction_thread_arg arg;
         arg.com = com;
-        arg.client_id = next_client_id++;
         pthread_t com_thread_id;
         if (pthread_create(&com_thread_id, NULL, (void *)interaction_thread, (void *)&arg) != 0) {
             perror("pthread_create(): communication");
@@ -333,6 +320,12 @@ int event_thread() {
         }
 
         struct Window *focused_win = window_get_focused();
+        if (focused_win == NULL) {
+            continue;
+        }
+
+        struct Event tinyws_event;
+        tinyws_event.window_id = focused_win->id;
 
         switch (event.type) {
             case SDL_QUIT:
@@ -342,7 +335,6 @@ int event_thread() {
             }
             case SDL_KEYDOWN:
             {
-                struct Event tinyws_event;
                 tinyws_event.type = TINYWS_EVENT_KEY_DOWN;
                 switch (event.key.keysym.sym) {
                     case SDLK_UP:
@@ -364,10 +356,6 @@ int event_thread() {
                         tinyws_event.param.keyboard.keycode = TINYWS_KEYCODE_ENTER;
                         break;
                 }
-                queue_push(&focused_win->events, &tinyws_event);
-
-                debugprint("event push: id=%d ", focused_win->id);
-                event_print(&tinyws_event);
                 break;
             }
 
@@ -375,12 +363,12 @@ int event_thread() {
             {
                 int mouse_x = event.button.x;
                 int mouse_y = event.button.y;
+                // TODO: functionize
                 if (focused_win->pos.x <= mouse_x
                         && mouse_x < focused_win->pos.x + focused_win->size.width
                         && focused_win->pos.y <= mouse_y
                         && mouse_y < focused_win->pos.y + focused_win->size.height) {
                     // inner of focused window
-                    struct Event tinyws_event;
                     tinyws_event.type = TINYWS_EVENT_MOUSE_DOWN;
                     switch (event.button.button) {
                         case SDL_BUTTON_LEFT:
@@ -392,16 +380,11 @@ int event_thread() {
                     }
                     tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
                     tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
-                    queue_push(&focused_win->events, &tinyws_event);
-
-                    debugprint("event push: id=%d ", focused_win->id);
-                    event_print(&tinyws_event);
                 }
                 break;
             }
             case SDL_MOUSEBUTTONUP:
             {
-                struct Event tinyws_event;
                 tinyws_event.type = TINYWS_EVENT_MOUSE_UP;
                 switch (event.button.button) {
                     case SDL_BUTTON_LEFT:
@@ -413,25 +396,30 @@ int event_thread() {
                 }
                 tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
                 tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
-                queue_push(&focused_win->events, &tinyws_event);
-
-                debugprint("event push: id=%d ", focused_win->id);
-                event_print(&tinyws_event);
                 break;
             }
             case SDL_MOUSEMOTION:
             {
-                struct Event tinyws_event;
                 tinyws_event.type = TINYWS_EVENT_MOUSE_MOVE;
                 tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
                 tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
-                queue_push(&focused_win->events, &tinyws_event);
-
-                debugprint("event push: id=%d ", focused_win->id);
-                event_print(&tinyws_event);
                 break;
             }
         }
+
+
+        if (focused_win->client_id == -1) {
+            // server window
+
+        } else {
+            // TODO: send notification to (focused_win->parent->window_manager)
+            struct Client *focused_client = client_get_by_id(focused_win->client_id);
+            assert(focused_client != NULL);
+            client_send_event(focused_client, &tinyws_event);
+        }
+
+        debugprint("event push: id=%d ", focused_win->id);
+        event_print(&tinyws_event);
         
         // 再描画
         refresh_screen();
@@ -470,6 +458,7 @@ int init() {
     }
 
     window_subsystem_init();
+    client_subsystem_init();
 
     request_queue = queue_new(sizeof(struct Request));
     
