@@ -62,11 +62,11 @@ struct Window *window_new(struct Window *parent, struct Display *disp, Rect rect
         if (!win->parent->child.next) {
             linked_list_insert_next(&win->parent->child, &win->next);
         } else {
-            struct Window *ptr = CONTAINNER_OF(&win->parent->child.next, struct Window, next);
-            while (ptr->next.next) {
-                ptr = CONTAINNER_OF(ptr->next.next, struct Window, next);
+            LinkedList *ptr = win->parent->child.next;
+            while (ptr->next) {
+                ptr = ptr->next;
             }
-            linked_list_insert_next(&ptr->next, &win->next);
+            linked_list_insert_next(ptr, &win->next);
         }
     }
 
@@ -124,25 +124,11 @@ int window_release(struct Window *win) {
 int window_draw(struct Window *win, struct Display *disp) {
     debugprint("window_draw: win=%d\n", win->id);
     if (win->visible) {
-        if (SDL_SetRenderTarget(disp->ren, NULL) < 0) {
-            fprintf(stderr, "Window: SDL_SetRenderTarget Error: %s\n", SDL_GetError());
-            return -1;
-        }
-
-        if (SDL_SetRenderDrawColor(disp->ren, 0, 255, 255, 255) < 0) {
-            fprintf(stderr, "Window: SDL_SetRenderDrawColor Error: %s\n", SDL_GetError());
-            return -1;
-        }
-
         struct Window *p = win->parent;
 
         SDL_Rect rect;
         rect.x = win->pos.x;
         rect.y = win->pos.y;
-        if (p) {
-            rect.x += p->pos.x;
-            rect.y += p->pos.y;
-        }
         rect.w = win->size.width;
         rect.h = win->size.height;
 
@@ -157,15 +143,27 @@ int window_draw(struct Window *win, struct Display *disp) {
             SDL_RenderDrawRect(win->disp->ren, &tmp);
         }
 
-        if (SDL_RenderCopy(disp->ren, win->buffer, NULL, &rect) < 0) {
-            fprintf(stderr, "Window: SDL_RenderCopy Error: %s\n", SDL_GetError());
+        SDL_Texture *parent_buffer = SDL_GetRenderTarget(disp->ren);
+
+        if (SDL_SetRenderTarget(disp->ren, win->buffer) < 0) {
+            fprintf(stderr, "Window: SDL_SetRenderTarget Error: %s\n", SDL_GetError());
             return -1;
         }
-        
+
         // draw children
         if (win->child.next) {
             struct Window *ptr = CONTAINNER_OF(win->child.next, struct Window, next);
             window_draw(ptr, disp);
+        }
+
+        // copy buffer to parent
+        if (SDL_SetRenderTarget(disp->ren, parent_buffer) < 0) {
+            fprintf(stderr, "Window: SDL_SetRenderTarget Error: %s\n", SDL_GetError());
+            return -1;
+        }
+        if (SDL_RenderCopy(disp->ren, win->buffer, NULL, &rect) < 0) {
+            fprintf(stderr, "Window: SDL_RenderCopy Error: %s\n", SDL_GetError());
+            return -1;
         }
     }
 
@@ -188,7 +186,7 @@ struct Window *window_get_by_id(uint32_t win_id) {
 }
 
 // for debug
-void widow_print_all() {
+void window_print_all() {
     for (size_t i = 0; i < deque_size(&windows); i++) {
         struct Window *win = deque_at(&windows, i);
         debugprint("id=%d\n", win->id);
@@ -208,7 +206,7 @@ void widow_print_all() {
 }
 
 void window_move_top(struct Window *win) {
-    // widow_print_all();
+    // window_print_all();
     if (!win->next.next) {
         // already top
         debugprint("window_move_top: %d already top\n", win->id);
@@ -221,4 +219,24 @@ void window_move_top(struct Window *win) {
         }
         linked_list_insert_next(ptr, &win->next);
     }
+}
+
+void window_reparent(struct Window *win, struct Window *new_parent) {
+    linked_list_erase(&win->next);
+    win->parent = new_parent;
+    
+    if (!new_parent->child.next) {
+        linked_list_insert_next(&new_parent->child, &win->next);
+    } else {
+        LinkedList *ptr = new_parent->child.next;
+        while (ptr->next) {
+            ptr = ptr->next;
+        }
+        linked_list_insert_next(ptr, &win->next);
+    }
+
+    window_print_all();
+
+    win->pos.x -= new_parent->pos.x;
+    win->pos.y -= new_parent->pos.y;
 }

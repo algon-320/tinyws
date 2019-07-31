@@ -64,6 +64,7 @@ void refresh_screen() {
 
 struct interaction_thread_arg {
     int com;
+    int32_t connection_id;
 };
 int interaction_thread(struct interaction_thread_arg *arg) {
     // print peer address
@@ -153,6 +154,21 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     break;
                 }
                 win->visible = request.param.set_window_visibility.visible;
+                break;
+            }
+            case TINYWS_REQUEST_WINDOW_REPARENT:
+            {
+                struct Window *win = window_get_by_id(request.target_window_id);
+                if (win == NULL) {
+                    resp.success = 0;
+                    break;
+                }
+                struct Window *parent = window_get_by_id(request.param.reparent.parent_window_id);
+                if (parent == NULL) {
+                    resp.success = 0;
+                    break;
+                }
+                window_reparent(win, parent);
                 break;
             }
             case TINYWS_REQUEST_SET_FOCUS:
@@ -362,6 +378,25 @@ int event_thread() {
     return 0;
 }
 
+static uint32_t mouse_cursor_bitmap[16][16] = {
+	{1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	{1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	{1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0},
+	{1,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0},
+	{1,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0},
+	{1,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0},
+	{1,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0},
+	{1,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0},
+	{1,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0},
+	{1,2,2,2,2,2,1,1,1,1,1,0,0,0,0,0},
+	{1,2,2,1,2,2,1,0,0,0,0,0,0,0,0,0},
+	{1,2,1,0,1,2,2,1,0,0,0,0,0,0,0,0},
+	{1,1,0,0,1,2,2,1,0,0,0,0,0,0,0,0},
+	{1,0,0,0,0,1,2,2,1,0,0,0,0,0,0,0},
+	{0,0,0,0,0,1,2,2,1,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0},
+};
+
 int drawing_thread() {
     while (1) {
         struct Request request;
@@ -393,10 +428,29 @@ int drawing_thread() {
         {
             int mouse_x, mouse_y;
             int pushed = SDL_GetMouseState(&mouse_x, &mouse_y);
+            Color c1 = color_new(0, 0, 0, 255);
+            Color c2 = color_new(255, 255, 255, 255);
+            Color cc = color_new(0, 255, 0, 255);
             if (pushed & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-                draw_rect(overlay_win, mouse_x, mouse_y, 10, 10, color_new(0, 255, 0, 255));
+                for (int iy = 0; iy < 16; iy++) {
+                    for (int ix = 0; ix < 16; ix++) {
+                        if (mouse_cursor_bitmap[iy][ix] == 1) {
+                            draw_pixel(overlay_win, mouse_x + ix, mouse_y + iy, c1);
+                        } else if (mouse_cursor_bitmap[iy][ix] == 2) {
+                            draw_pixel(overlay_win, mouse_x + ix, mouse_y + iy, cc);
+                        }
+                    }
+                }
             } else {
-                draw_rect(overlay_win, mouse_x, mouse_y, 10, 10, color_new(255, 255, 0, 255));
+                for (int iy = 0; iy < 16; iy++) {
+                    for (int ix = 0; ix < 16; ix++) {
+                        if (mouse_cursor_bitmap[iy][ix] == 1) {
+                            draw_pixel(overlay_win, mouse_x + ix, mouse_y + iy, c1);
+                        } else if (mouse_cursor_bitmap[iy][ix] == 2) {
+                            draw_pixel(overlay_win, mouse_x + ix, mouse_y + iy, c2);
+                        }
+                    }
+                }
             }
             disp.curosr_pos = point_new(mouse_x, mouse_y);
         }
@@ -550,6 +604,7 @@ int main(int argc, char *argv[]) {
         goto EXIT_QUIT;
     }
 
+    int32_t next_connection_id = 0;
     while (1) {
         printf("[%d] acception incoming connections (acc == %d) ...\n", getpid(), acc);
         if ((com = accept(acc, 0, 0)) < 0) {
@@ -558,6 +613,7 @@ int main(int argc, char *argv[]) {
         }
         struct interaction_thread_arg arg;
         arg.com = com;
+        arg.connection_id = next_connection_id++;
         pthread_t com_thread_id;
         if (pthread_create(&com_thread_id, NULL, (void *)interaction_thread, (void *)&arg) != 0) {
             perror("pthread_create(): communication");

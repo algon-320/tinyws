@@ -53,6 +53,7 @@ int main(int argc, char *argv[]) {
             printf("\tmove: move specific window\n");
             printf("\tsetvis: show / hide specific window\n");
             printf("\tclose: close specific window\n");
+            printf("\treparent: change parent of specific window\n");
             printf("\tfocus: focus specific window\n");
             printf("\tmovetop: move specific window top\n");
             printf("\tdraw_rect: drawing a rectangle\n");
@@ -96,6 +97,17 @@ int main(int argc, char *argv[]) {
             request.type = TINYWS_REQUEST_SET_WINDOW_VISIBILITY;
             request.target_window_id = win;
             request.param.set_window_visibility.visible = vis;
+        } else if (strcmp(command, "reparent") == 0) {
+            int win;
+            printf("? win_id = "); fflush(stdout);
+            scanf("%d", &win);
+            int parent;
+            printf("? parent = "); fflush(stdout);
+            scanf("%d", &parent);
+
+            request.type = TINYWS_REQUEST_WINDOW_REPARENT;
+            request.target_window_id = win;
+            request.param.reparent.parent_window_id = parent;
         } else if (strcmp(command, "focus") == 0) {
             int win;
             printf("? win_id = "); fflush(stdout);

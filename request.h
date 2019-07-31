@@ -21,6 +21,7 @@ typedef enum {
     TINYWS_REQUEST_SET_WINDOW_VISIBILITY,
     TINYWS_REQUEST_SET_FOCUS,
     TINYWS_REQUEST_MOVE_WINDOW_TOP,
+    TINYWS_REQUEST_WINDOW_REPARENT,
 
     // event
     TINYWS_REQUEST_GET_EVENT,
@@ -62,6 +63,9 @@ struct Request {
         struct {
             uint8_t visible;
         } set_window_visibility;
+        struct {
+            uint32_t parent_window_id;
+        } reparent;
     } param;
 };
 

@@ -96,6 +96,11 @@ void request_print(const struct Request *request) {
         case TINYWS_REQUEST_SET_FOCUS:
             printf("TINYWS_REQUEST_FOCUS\n");
             break;
+        case TINYWS_REQUEST_WINDOW_REPARENT:
+            printf("TINYWS_REQUEST_WINDOW_REPARENT(parent=%d)\n",
+                    request->param.reparent.parent_window_id
+                    );
+            break;
         case TINYWS_REQUEST_GET_EVENT:
             printf("TINYWS_REQUEST_GET_EVENT\n");
             break;
@@ -165,6 +170,11 @@ size_t request_encode(const struct Request *request, uint8_t *out, size_t size) 
         case TINYWS_REQUEST_SET_WINDOW_VISIBILITY:
         {
             WRITE_INT_LE(request->param.set_window_visibility.visible, &nxt);
+            break;
+        }
+        case TINYWS_REQUEST_WINDOW_REPARENT:
+        {
+            WRITE_INT_LE(request->param.reparent.parent_window_id, &nxt);
             break;
         }
         case TINYWS_REQUEST_SET_FOCUS:
@@ -259,6 +269,12 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
         {
             ret.type = TINYWS_REQUEST_SET_WINDOW_VISIBILITY;
             READ_INT_LE(&buf, &ret.param.set_window_visibility.visible);
+            break;
+        }
+        case TINYWS_REQUEST_WINDOW_REPARENT:
+        {
+            ret.type = TINYWS_REQUEST_WINDOW_REPARENT;
+            READ_INT_LE(&buf, &ret.param.reparent.parent_window_id);
             break;
         }
         case TINYWS_REQUEST_SET_FOCUS:

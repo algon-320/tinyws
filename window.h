@@ -38,4 +38,6 @@ struct Window *window_get_by_id(uint32_t win_id);
 
 void window_move_top(struct Window *win);
 
+void window_reparent(struct Window *win, struct Window *new_parent);
+
 #endif
