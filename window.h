@@ -42,4 +42,15 @@ void window_move_top(struct Window *win);
 
 void window_reparent(struct Window *win, struct Window *new_parent);
 
+
+// set window attributes
+
+void window_set_pos(struct Window *win, Point pos);
+
+void window_set_visibility(struct Window *win, bool visible);
+
+void window_set_wm(struct Window *win, client_id_t window_manager);
+
+bool window_check_inner_point(struct Window *win, Point p);
+
 #endif

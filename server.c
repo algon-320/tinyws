@@ -36,6 +36,49 @@ Queue request_queue;  // <struct Request>
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
+void request_queue_push(struct Request *req) {
+    int r = pthread_mutex_lock(&mutex);
+    if (r != 0) {
+        fprintf(stderr, "can not lock\n");
+        assert(false);
+        return;
+    }
+    {
+        queue_push(&request_queue, req);
+        pthread_cond_signal(&cond);
+    }
+    r = pthread_mutex_unlock(&mutex);
+    if (r != 0) {
+        fprintf(stderr, "can not lock\n");
+        assert(false);
+        return;
+    }
+    return;
+}
+
+bool request_queue_pop(struct Request *req) {
+    int r = pthread_mutex_lock(&mutex);
+    if (r != 0) {
+        fprintf(stderr, "can not lock\n");
+        assert(false);
+        return false;
+    }
+    {
+        if (queue_empty(&request_queue)) {
+            pthread_cond_wait(&cond, &mutex);
+        }
+        *req = *(struct Request *)queue_front(&request_queue);
+        queue_pop(&request_queue);
+    }
+    r = pthread_mutex_unlock(&mutex);
+    if (r != 0) {
+        fprintf(stderr, "can not lock\n");
+        assert(false);
+        return false;
+    }
+    return true;
+}
+
 int receive_request(uint8_t *line, size_t size, FILE *in) {
     if (fread(line, sizeof(uint8_t), size, in) == 0) {
         return -1;
@@ -44,24 +87,10 @@ int receive_request(uint8_t *line, size_t size, FILE *in) {
 }
 
 void refresh_screen() {
-    int r;
-    r = pthread_mutex_lock(&mutex);
-    if (r != 0) {
-        fprintf(stderr, "can not lock\n");
-        return;
-    }
-    {
-        struct Request request;
-        request.type = TINYWS_REQUEST_REFRESH;
-        request.source = -1;
-        queue_push(&request_queue, &request);
-        pthread_cond_signal(&cond);
-    }
-    r = pthread_mutex_unlock(&mutex);
-    if (r != 0) {
-        fprintf(stderr, "can not lock\n");
-        return;
-    }
+    struct Request request;
+    request.type = TINYWS_REQUEST_REFRESH;
+    request.source = -1;
+    request_queue_push(&request);
 }
 
 struct interaction_thread_arg {
@@ -137,7 +166,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
                 // top level window only
                 if (parent_win->id == 0) {
-                    deque_push_back(&client->openning_windows, &win);
+                    client_openning_window_push(client, win);
                 }
                 break;
             }
@@ -164,8 +193,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     break;
                 }
 
-                win->pos.x = request.param.set_window_pos.pos.x;
-                win->pos.y = request.param.set_window_pos.pos.y;
+                window_set_pos(win, request.param.set_window_pos.pos);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -179,7 +207,8 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
-                win->visible = request.param.set_window_visibility.visible;
+                
+                window_set_visibility(win, request.param.set_window_visibility.visible ? true : false);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -242,7 +271,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     break;
                 }
 
-                win->window_manager = client->id;
+                window_set_wm(win, client->id);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -251,15 +280,16 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
             case TINYWS_REQUEST_GET_EVENT:
             {
-                if (queue_empty(&client->events)) {
+                struct Event event;
+                if (!client_event_pop(client, &event)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
+
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_EVENT_NOTIFY;
-                resp.content.event_notify.event = DEQUE_TAKE(queue_front(&client->events), struct Event);
-                queue_pop(&client->events);
+                resp.content.event_notify.event = event;
                 break;
             }
 
@@ -274,21 +304,8 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     resp.success = 0;
                     break;
                 }
-                int r;
-                r = pthread_mutex_lock(&mutex);
-                if (r != 0) {
-                    fprintf(stderr, "can not lock\n");
-                    break;
-                }
-                {
-                    queue_push(&request_queue, &request);
-                    pthread_cond_signal(&cond);
-                }
-                r = pthread_mutex_unlock(&mutex);
-                if (r != 0) {
-                    fprintf(stderr, "can not lock\n");
-                    break;
-                }
+                
+                request_queue_push(&request);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -398,11 +415,7 @@ int event_thread() {
             {
                 int mouse_x = event.button.x;
                 int mouse_y = event.button.y;
-                // TODO: functionize
-                if (focused_win->pos.x <= mouse_x
-                        && mouse_x < focused_win->pos.x + focused_win->size.width
-                        && focused_win->pos.y <= mouse_y
-                        && mouse_y < focused_win->pos.y + focused_win->size.height) {
+                if (window_check_inner_point(focused_win, point_new(mouse_x, mouse_y))) {
                     // inner of focused window
                     tinyws_event.type = TINYWS_EVENT_MOUSE_DOWN;
                     switch (event.button.button) {
@@ -450,7 +463,7 @@ int event_thread() {
             // TODO: send notification to (focused_win->parent->window_manager)
             struct Client *focused_client = client_get_by_id(focused_win->client_id);
             assert(focused_client != NULL);
-            client_send_event(focused_client, &tinyws_event);
+            client_event_push(focused_client, &tinyws_event);
         }
 
         debugprint("event push: id=%d ", focused_win->id);
@@ -538,26 +551,7 @@ int main(int argc, char *argv[]) {
     // drawing
     while (1) {
         struct Request request;
-        {
-            int r;
-            r = pthread_mutex_lock(&mutex);
-            if (r != 0) {
-                fprintf(stderr, "can not lock\n");
-                break;
-            }
-            {
-                if (queue_empty(&request_queue)) {
-                    pthread_cond_wait(&cond, &mutex);
-                }
-                request = *(struct Request *)queue_front(&request_queue);
-                queue_pop(&request_queue);
-            }
-            r = pthread_mutex_unlock(&mutex);
-            if (r != 0) {
-                fprintf(stderr, "can not lock\n");
-                break;
-            }
-        }
+        request_queue_pop(&request);
 
         clear_screen(root_win);
         clear_screen(overlay_win);

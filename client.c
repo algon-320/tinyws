@@ -65,6 +65,19 @@ struct Client *client_get_by_id(client_id_t client_id) {
     return NULL;
 }
 
-void client_send_event(struct Client *client, struct Event *event) {
+void client_event_push(struct Client *client, struct Event *event) {
     queue_push(&client->events, event);
+}
+
+bool client_event_pop(struct Client *client, struct Event *event) {
+    if (queue_empty(&client->events)) {
+        return false;
+    }
+    *event = DEQUE_TAKE(queue_front(&client->events), struct Event);
+    queue_pop(&client->events);
+    return true;
+}
+
+void client_openning_window_push(struct Client *client, struct Window *win) {
+    deque_push_back(&client->openning_windows, &win);
 }

@@ -104,7 +104,7 @@ struct Window *window_new(struct Window *parent, struct Display *disp, client_id
         wm_notify.window_id = win->parent->id;
         wm_notify.param.wm_event_create_window.client_window_id = win->id;
         wm_notify.param.wm_event_create_window.rect = rect_new(win->pos.x, win->pos.y, win->size.width, win->size.height);
-        client_send_event(window_manager, &wm_notify);
+        client_event_push(window_manager, &wm_notify);
         debugprint("send wm notify\n");
     }
 
@@ -122,7 +122,7 @@ int window_close(struct Window *win) {
         event.type = TINYWS_EVENT_CLOSE_CHILD_WINDOW;
         event.window_id = win->parent->id;
         event.param.close_child_window.child_window_id = win->id;
-        client_send_event(client, &event);
+        client_event_push(client, &event);
     }
 
     // release recursively
@@ -155,17 +155,6 @@ int window_draw(struct Window *win, struct Display *disp) {
         rect.y = win->pos.y;
         rect.w = win->size.width;
         rect.h = win->size.height;
-
-        // draw a frame for the focused window
-        // if (focused == win) {
-        //     SDL_Rect tmp = rect;
-        //     tmp.x -= 2;
-        //     tmp.y -= 2;
-        //     tmp.w += 4;
-        //     tmp.h += 4;
-        //     SDL_SetRenderDrawColor(win->disp->ren, 255, 0, 0, 255);
-        //     SDL_RenderDrawRect(win->disp->ren, &tmp);
-        // }
 
         SDL_Texture *parent_buffer = SDL_GetRenderTarget(disp->ren);
 
@@ -263,4 +252,23 @@ void window_reparent(struct Window *win, struct Window *new_parent) {
 
     win->pos.x -= new_parent->pos.x;
     win->pos.y -= new_parent->pos.y;
+}
+
+void window_set_pos(struct Window *win, Point pos) {
+    win->pos = pos;
+}
+
+void window_set_visibility(struct Window *win, bool visible) {
+    win->visible = (visible ? 1 : 0);
+}
+
+void window_set_wm(struct Window *win, client_id_t window_manager) {
+    win->window_manager = window_manager;
+}
+
+bool window_check_inner_point(struct Window *win, Point p) {
+    return (win->pos.x <= p.x
+            && p.x < win->pos.x + win->size.width
+            && win->pos.y <= p.y
+            && p.y < win->pos.y + win->size.height);
 }
