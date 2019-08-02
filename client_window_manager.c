@@ -79,6 +79,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    window_id_t frame_window_id_map[1024];
+
     while (1) {
         request.type = TINYWS_REQUEST_GET_EVENT;
 
@@ -91,8 +93,8 @@ int main(int argc, char *argv[]) {
                 switch (event.type) {
                     case TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW:
                     {
-                        window_id_t client_window_id = event.param.wm_event_notify.client_window_id;
-                        Rect rect = event.param.wm_event_notify.rect;
+                        window_id_t client_window_id = event.param.wm_event_create_window.client_window_id;
+                        Rect rect = event.param.wm_event_create_window.rect;
 
                         sleep(1);
 
@@ -116,6 +118,8 @@ int main(int argc, char *argv[]) {
                             assert(resp_tmp.success);
                             frame_window_id = resp_tmp.content.window_id.id;
                         }
+
+                        frame_window_id_map[client_window_id] = frame_window_id;
 
                         {
                             // shadow
@@ -197,6 +201,24 @@ int main(int argc, char *argv[]) {
                             req_tmp.type = TINYWS_REQUEST_SET_WINDOW_POS;
                             req_tmp.target_window_id = client_window_id;
                             req_tmp.param.set_window_pos.pos = point_new(1, 20);
+                            resp_tmp = interact(&req_tmp, in, out);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
+                            assert(resp_tmp.success);
+                        }
+                        break;
+                    }
+                    case TINYWS_EVENT_CLOSE_CHILD_WINDOW:
+                    {
+                        // close frame window
+                        window_id_t child_win_id = event.param.close_child_window.child_window_id;
+                        window_id_t frame_window_id = frame_window_id_map[child_win_id];
+
+                        struct Request req_tmp;
+                        struct Response resp_tmp;
+
+                        {
+                            req_tmp.type = TINYWS_REQUEST_CLOSE_WINDOW;
+                            req_tmp.target_window_id = frame_window_id;
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);

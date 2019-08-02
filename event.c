@@ -46,11 +46,17 @@ void event_print(const struct Event *event) {
     case TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW:
         printf("TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW(win=%d, client_win_id=%d, rect=(x=%d, y=%d, w=%d, h=%d))\n",
                 event->window_id,
-                event->param.wm_event_notify.client_window_id,
-                event->param.wm_event_notify.rect.x,
-                event->param.wm_event_notify.rect.y,
-                event->param.wm_event_notify.rect.width,
-                event->param.wm_event_notify.rect.height
+                event->param.wm_event_create_window.client_window_id,
+                event->param.wm_event_create_window.rect.x,
+                event->param.wm_event_create_window.rect.y,
+                event->param.wm_event_create_window.rect.width,
+                event->param.wm_event_create_window.rect.height
+                );
+        break;
+    case TINYWS_EVENT_CLOSE_CHILD_WINDOW:
+        printf("TINYWS_EVENT_CLOSE_CHILD_WINDOW(win=%d, child_win_id=%d)\n",
+                event->window_id,
+                event->param.close_child_window.child_window_id
                 );
         break;
     default:
@@ -83,8 +89,13 @@ size_t event_encode(const struct Event *event, uint8_t **out) {
 
         case TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW:
         {
-            WRITE_INT_LE(event->param.wm_event_notify.client_window_id, &nxt);
-            rect_encode(&event->param.wm_event_notify.rect, &nxt);
+            WRITE_INT_LE(event->param.wm_event_create_window.client_window_id, &nxt);
+            rect_encode(&event->param.wm_event_create_window.rect, &nxt);
+            break;
+        }
+        case TINYWS_EVENT_CLOSE_CHILD_WINDOW:
+        {
+            WRITE_INT_LE(event->param.close_child_window.child_window_id, &nxt);
             break;
         }
     }
@@ -116,8 +127,13 @@ struct Event event_decode(const uint8_t **in) {
         
         case TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW:
         {
-            READ_INT_LE(in, &event.param.wm_event_notify.client_window_id);
-            rect_decode(in, &event.param.wm_event_notify.rect);
+            READ_INT_LE(in, &event.param.wm_event_create_window.client_window_id);
+            rect_decode(in, &event.param.wm_event_create_window.rect);
+            break;
+        }
+        case TINYWS_EVENT_CLOSE_CHILD_WINDOW:
+        {
+            READ_INT_LE(in, &event.param.close_child_window.child_window_id);
             break;
         }
     }

@@ -135,19 +135,6 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 resp.type = TINYWS_RESPONSE_WINDOW_ID;
                 resp.content.window_id.id = win->id;
 
-                // send event to the window manager
-                if (parent_win->window_manager != -1 && parent_win->window_manager != client->id) {
-                    struct Client *window_manager = client_get_by_id(parent_win->window_manager);
-                    assert(window_manager != NULL);
-                    struct Event wm_notify;
-                    wm_notify.type = TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW;
-                    wm_notify.window_id = parent_win->id;
-                    wm_notify.param.wm_event_notify.client_window_id = win->id;
-                    wm_notify.param.wm_event_notify.rect = rect_new(win->pos.x, win->pos.y, win->size.width, win->size.height);
-                    client_send_event(window_manager, &wm_notify);
-                    debugprint("send wm notify\n");
-                }
-
                 // top level window only
                 if (parent_win->id == 0) {
                     deque_push_back(&client->openning_windows, &win);

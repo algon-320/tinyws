@@ -7,6 +7,7 @@
 #include "lib/deque.h"
 #include "lib/stack.h"
 #include "event.h"
+#include "client.h"
 
 Deque windows;        // <struct Window>
 Stack free_win;       // <struct Window *>
@@ -93,11 +94,36 @@ struct Window *window_new(struct Window *parent, struct Display *disp, client_id
 
     clear_screen(win);
 
+
+    // send event to the window manager
+    if (win->parent && win->parent->window_manager != -1 && win->parent->window_manager != win->client_id) {
+        struct Client *window_manager = client_get_by_id(win->parent->window_manager);
+        assert(window_manager != NULL);
+        struct Event wm_notify;
+        wm_notify.type = TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW;
+        wm_notify.window_id = win->parent->id;
+        wm_notify.param.wm_event_create_window.client_window_id = win->id;
+        wm_notify.param.wm_event_create_window.rect = rect_new(win->pos.x, win->pos.y, win->size.width, win->size.height);
+        client_send_event(window_manager, &wm_notify);
+        debugprint("send wm notify\n");
+    }
+
     return win;
 }
 
 int window_close(struct Window *win) {
     debugprint("window_close win=%d\n", win->id);
+
+     // send event to the parent
+    if (win->parent->client_id != -1) {
+        struct Client *client = client_get_by_id(win->parent->client_id);
+        assert(client != NULL);
+        struct Event event;
+        event.type = TINYWS_EVENT_CLOSE_CHILD_WINDOW;
+        event.window_id = win->parent->id;
+        event.param.close_child_window.child_window_id = win->id;
+        client_send_event(client, &event);
+    }
 
     // release recursively
     while (win->child.next) {

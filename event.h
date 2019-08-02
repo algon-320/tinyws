@@ -12,6 +12,7 @@ enum EventType {
     TINYWS_EVENT_MOUSE_MOVE,
     TINYWS_EVENT_KEY_DOWN,
     TINYWS_EVENT_KEY_UP,
+    TINYWS_EVENT_CLOSE_CHILD_WINDOW,
     TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW,
 };
 
@@ -41,10 +42,13 @@ struct Event {
         struct KeyBoard {
             enum KeyCode keycode;
         } keyboard;
-        struct WMEventNotify {
+        struct WMEventCreateWindow {
             window_id_t client_window_id;
             Rect rect;
-        } wm_event_notify;
+        } wm_event_create_window;
+        struct CloseChildWindow {
+            window_id_t child_window_id;
+        } close_child_window;
     } param;
 };
 
