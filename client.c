@@ -1,85 +1,131 @@
+#include <assert.h>
 #include "client.h"
 #include "lib/stack.h"
 
 const client_id_t CLIENT_ID_INVALID = -1;
 
-Deque clients;       // <struct Client>
-Stack free_clients;  // <struct Client *>
-
-void expand_clients(size_t num) {
-    int cur_len = deque_size(&clients);
-    for (int idx = cur_len + num - 1; idx >= cur_len; idx--) {
-        deque_push_back(&clients, NULL);
-    }
-    for (int idx = cur_len + num - 1; idx >= cur_len; idx--) {
-        struct Client *client = deque_at(&clients, idx);
-        client->id = idx;
-        stack_push(&free_clients, &client);
-    }
-}
+Deque clients_ptr;       // <struct Client *>
+pthread_mutex_t clients_mutex;
+client_id_t next_client_id;
 
 void client_subsystem_init() {
-    static const int INITIAL_CLIENT_ALLOC_NUM = 16;
-    clients = deque_new_with_capacity(0, sizeof(struct Client), INITIAL_CLIENT_ALLOC_NUM);
-    free_clients = stack_new(sizeof(struct Client *));
-
-    expand_clients(INITIAL_CLIENT_ALLOC_NUM);
+    next_client_id = 0;
+    clients_ptr = deque_new(0, sizeof(struct Client *));
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutexattr_init(&mutex_attr);
+    pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_RECURSIVE_NP);
+    pthread_mutex_init(&clients_mutex, &mutex_attr);
 }
 
-struct Client *client_new() {
-    if (stack_empty(&free_clients)) {
-        size_t expand_len = deque_size(&clients);
-        expand_clients(expand_len);
-    }
-
-    struct Client *client = DEQUE_TAKE(stack_top(&free_clients), struct Client *);
-    stack_pop(&free_clients);
-
+client_id_t client_new() {
+    struct Client *client = calloc(1, sizeof(struct Client));
     client->openning_windows = deque_new(0, sizeof(window_id_t));
     client->events = deque_new(0, sizeof(struct Event));
     client->is_alive = true;
+    pthread_mutex_init(&client->mutex, NULL);
 
+    lock_mutex(&clients_mutex);
+    {
+        client->id = next_client_id++;
+        deque_push_back(&clients_ptr, &client);
+    }
+    unlock_mutex(&clients_mutex);
+
+    return client->id;
+}
+
+void client_close(client_id_t client_id) {
+    struct Window *to_lock = window_get_own(0);
+    lock_mutex(&clients_mutex);
+    {
+        struct Client *client = client_ref(client_id);
+        
+        // close all windows that opened by the client
+        while (deque_size(&client->openning_windows)) {
+            window_id_t win_id = DEQUE_TAKE(deque_back(&client->openning_windows), window_id_t);
+            deque_pop_back(&client->openning_windows);
+
+            struct Window *win = window_ref(win_id);
+            window_close_ptr(win);
+        }
+
+        deque_free(&client->openning_windows);
+        deque_free(&client->events);
+        client->is_alive = false;
+
+        pthread_mutex_destroy(&client->mutex);
+    }
+    unlock_mutex(&clients_mutex);
+    window_return_own(to_lock);
+}
+
+
+bool client_is_valid(client_id_t client_id) {
+    lock_mutex(&clients_mutex);
+    bool ret = true;
+    if (!(0 <= client_id && (size_t)client_id < deque_size(&clients_ptr))) {
+        debugprint("client_id out of range\n");
+        ret = false;
+    } else {
+        struct Client *tmp = DEQUE_TAKE(deque_at(&clients_ptr, client_id), struct Client *);
+        if (!tmp) {
+            debugprint("client: %d is NULL\n", client_id);
+            ret = false;
+        }
+    }
+    unlock_mutex(&clients_mutex);
+    return ret;
+}
+
+// get client without ownnership
+struct Client *client_ref(client_id_t client_id) {
+    if (!(0 <= client_id && (size_t)client_id < deque_size(&clients_ptr))) {
+        return NULL;
+    }
+    return DEQUE_TAKE(deque_at(&clients_ptr, client_id), struct Client *);
+}
+
+// get client with ownnership
+struct Client *client_get_own(client_id_t client_id) {
+    lock_mutex(&clients_mutex);
+    struct Client *client = client_ref(client_id);
+    if (!client) {
+        unlock_mutex(&clients_mutex);
+        return NULL;
+    }
+    lock_mutex(&client->mutex);
     return client;
 }
 
-void client_close(struct Client *client) {
-    // close all windows that opened by the client
-    while (deque_size(&client->openning_windows)) {
-        window_id_t win_id = DEQUE_TAKE(deque_back(&client->openning_windows), window_id_t);
-        deque_pop_back(&client->openning_windows);
-        window_close(win_id);
+// return ownnership
+void client_return_own(struct Client *client) {
+    if (!client) {
+        return;
     }
-
-    deque_free(&client->openning_windows);
-    deque_free(&client->events);
-    client->is_alive = false;
-
-    stack_push(&free_clients, &client);
+    unlock_mutex(&client->mutex);
+    unlock_mutex(&clients_mutex);
 }
 
-struct Client *client_get_by_id(client_id_t client_id) {
-    if (0 <= client_id && client_id < (client_id_t)deque_size(&clients)) {
-        struct Client *client = deque_at(&clients, client_id);
-        if (client->is_alive) {
-            return client;
-        }
-    }
-    return NULL;
-}
-
-void client_event_push(struct Client *client, struct Event *event) {
+void client_event_push(client_id_t client_id, struct Event *event) {
+    struct Client *client = client_get_own(client_id);
     queue_push(&client->events, event);
+    client_return_own(client);
 }
 
-bool client_event_pop(struct Client *client, struct Event *event) {
-    if (queue_empty(&client->events)) {
-        return false;
+bool client_event_pop(client_id_t client_id, struct Event *event) {
+    bool ret = false;
+    struct Client *client = client_get_own(client_id);
+    if (!queue_empty(&client->events)) {
+        *event = DEQUE_TAKE(queue_front(&client->events), struct Event);
+        queue_pop(&client->events);
+        ret = true;
     }
-    *event = DEQUE_TAKE(queue_front(&client->events), struct Event);
-    queue_pop(&client->events);
-    return true;
+    client_return_own(client);
+    return ret;
 }
 
-void client_openning_window_push(struct Client *client, window_id_t win) {
+void client_openning_window_push(client_id_t client_id, window_id_t win) {
+    struct Client *client = client_get_own(client_id);
     deque_push_back(&client->openning_windows, &win);
+    client_return_own(client);
 }

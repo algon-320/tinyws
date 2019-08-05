@@ -14,15 +14,26 @@ struct Client {
     bool is_alive;
     Deque openning_windows;  // <window_id_t>
     Queue events; // <struct Event>
+
+    pthread_mutex_t mutex;
 };
 
 void client_subsystem_init();
-struct Client *client_new();
-void client_close(struct Client *client);
-struct Client *client_get_by_id(client_id_t client_id);
-void client_event_push(struct Client *client, struct Event *event);
-bool client_event_pop(struct Client *client, struct Event *event);
+client_id_t client_new();
+void client_close(client_id_t client_id);
 
-void client_openning_window_push(struct Client *client, window_id_t win_id);
+// check is the client_id valid
+bool client_is_valid(client_id_t client_id);
+// get client without ownnership
+struct Client *client_ref(client_id_t client_id);
+// get client with ownnership
+struct Client *client_get_own(client_id_t client_id);
+// return ownnership
+void client_return_own(struct Client *client);
+
+void client_event_push(client_id_t client_id, struct Event *event);
+bool client_event_pop(client_id_t client_id, struct Event *event);
+
+void client_openning_window_push(client_id_t client_id, window_id_t win_id);
 
 #endif

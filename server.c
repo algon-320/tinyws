@@ -102,7 +102,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         exit(1);
     }
 
-    struct Client *client = client_new();
+    client_id_t cleint_id = client_new();
 
     while (receive_request(buf, BUFFSIZE, in) >= 0) {
         // printf("receive %d bytes: %s\n", rcount, buf);
@@ -114,12 +114,12 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         fflush(stdout);
 
         struct Request request = request_decode(buf, BUFFSIZE);
-        request.source = client->id;
+        request.source = cleint_id;
         // request_print(&request);
 
 
         struct Response resp;
-        resp.dest = client->id;
+        resp.dest = cleint_id;
 
         switch (request.type) {
             // if it is a window management request, process here
@@ -133,7 +133,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
 
                 window_id_t win_id = window_new(parent_id, &disp, 
-                        client->id,
+                        cleint_id,
                         -1,
                         request.param.create_window.rect,
                         "test window",
@@ -146,7 +146,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
                 // top level window only
                 if (parent_id == 0) {
-                    client_openning_window_push(client, win_id);
+                    client_openning_window_push(cleint_id, win_id);
                 }
                 break;
             }
@@ -267,7 +267,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                         window_return_own(win);
                         break;
                     }
-                    window_set_wm(win, client->id);
+                    window_set_wm(win, cleint_id);
                 }
                 window_return_own(win);
 
@@ -279,7 +279,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             case TINYWS_REQUEST_GET_EVENT:
             {
                 struct Event event;
-                if (!client_event_pop(client, &event)) {
+                if (!client_event_pop(cleint_id, &event)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
@@ -326,12 +326,14 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         fwrite(response_buf, sizeof(uint8_t), BUFFSIZE, out);
     }
 
-    client_close(client);
+    client_close(cleint_id);
     refresh_screen();
 
     printf("connection closed.\n");
     fclose(in);
     fclose(out);
+    
+    free(arg);
     return 0;
 }
 
@@ -351,10 +353,10 @@ int wait_for_connection_thread(struct wait_for_connection_thread_arg *arg) {
             perror("accept");
             continue;
         }
-        struct interaction_thread_arg arg;
-        arg.com = com;
+        struct interaction_thread_arg *arg = malloc(sizeof(struct interaction_thread_arg));
+        arg->com = com;
         pthread_t com_thread_id;
-        if (pthread_create(&com_thread_id, NULL, (void *)interaction_thread, (void *)&arg) != 0) {
+        if (pthread_create(&com_thread_id, NULL, (void *)interaction_thread, (void *)arg) != 0) {
             perror("pthread_create(): communication");
             continue;
         }
@@ -462,9 +464,9 @@ int event_thread() {
 
         } else {
             // TODO: send notification to (focused_win->parent->window_manager)
-            struct Client *focused_client = client_get_by_id(focused_win->client_id);
-            assert(focused_client != NULL);
-            client_event_push(focused_client, &tinyws_event);
+            if (client_is_valid(focused_win->client_id)) {
+                client_event_push(focused_win->client_id, &tinyws_event);
+            }
         }
 
         window_return_own(focused_win);

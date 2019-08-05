@@ -14,15 +14,19 @@ const window_id_t WINDOW_ID_INVALID = -1;
 // TODO: use dictionary
 // from window_id to window ptr
 Deque windows_ptr;  // <struct Window *>
-window_id_t next_window_id = 0;
+window_id_t next_window_id;
 pthread_mutex_t windows_mutex;
 
 window_id_t focused;
 
 
 void window_subsystem_init() {
+    next_window_id = 0;
     windows_ptr = deque_new(0, sizeof(struct Window *));
-    pthread_mutex_init(&windows_mutex, NULL);
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutexattr_init(&mutex_attr);
+    pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_RECURSIVE_NP);
+    pthread_mutex_init(&windows_mutex, &mutex_attr);
 }
 
 window_id_t window_get_focused() {
@@ -43,6 +47,7 @@ window_id_t window_new(window_id_t parent_id, struct Display *disp, client_id_t 
     linked_list_init(&win->next, NULL, NULL);
     linked_list_init(&win->child, NULL, NULL);
     pthread_mutex_init(&win->mutex, NULL);
+    window_id_t window_id = win->id;
 
     lock_mutex(&windows_mutex);
     {
@@ -50,9 +55,13 @@ window_id_t window_new(window_id_t parent_id, struct Display *disp, client_id_t 
     }
     unlock_mutex(&windows_mutex);
 
-    win = window_get_own(win->id);
-    assert(win);
+    client_id_t wm_id = -1;
+    struct Event wm_notify;
+
     {
+        win = window_get_own(win->id);
+        assert(win);
+
         struct Window *parent_ptr = window_ref(parent_id);
         focused = win->id;
         win->parent = parent_ptr;
@@ -99,22 +108,21 @@ window_id_t window_new(window_id_t parent_id, struct Display *disp, client_id_t 
         // if win is not a window created by window manager
         // send event to the window manager
         if (parent_ptr && parent_ptr->window_manager != -1 && parent_ptr->window_manager != win->client_id) {
-            struct Client *window_manager = client_get_by_id(parent_ptr->window_manager);
-            assert(window_manager != NULL);
-
-            struct Event wm_notify;
+            wm_id = parent_ptr->window_manager;
             wm_notify.type = TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW;
-            wm_notify.window_id = parent_ptr->id;
+            wm_notify.window_id = parent_id;
             wm_notify.param.wm_event_create_window.client_window_id = win->id;
             wm_notify.param.wm_event_create_window.rect = rect_new(win->pos.x, win->pos.y, win->size.width, win->size.height);
-            
-            client_event_push(window_manager, &wm_notify);
-            debugprint("send wm notify\n");
         }
+        
+        window_return_own(win);
     }
-    window_return_own(win);
 
-    return win->id;
+    if (wm_id != CLIENT_ID_INVALID) {
+        client_event_push(wm_id, &wm_notify);
+        debugprint("send wm notify\n");
+    }
+    return window_id;
 }
 
 void window_print_all();
@@ -122,17 +130,20 @@ void window_print_all();
 pthread_mutex_t sdl_texture = PTHREAD_MUTEX_INITIALIZER;
 
 int window_close_ptr(struct Window *win) {
+    if (win == NULL) {
+        return -1;
+    }
+    
     debugprint("window_close win=%d\n", win->id);
 
-     // send event to the parent
-    if (win->parent->client_id != -1) {
-        struct Client *client = client_get_by_id(win->parent->client_id);
-        assert(client != NULL);
+    // send event to the parent
+    client_id_t window_manager_id = win->parent->client_id;
+    if (window_manager_id != -1 && client_is_valid(window_manager_id)) {
         struct Event event;
         event.type = TINYWS_EVENT_CLOSE_CHILD_WINDOW;
         event.window_id = win->parent->id;
         event.param.close_child_window.child_window_id = win->id;
-        client_event_push(client, &event);
+        client_event_push(window_manager_id, &event);
     }
 
     assert(win->disp);
