@@ -9,6 +9,8 @@
 #include "basic_structures.h"
 #include "display.h"
 
+#include <pthread.h>
+
 struct Window {
     struct Window *parent;
     window_id_t id;
@@ -23,24 +25,36 @@ struct Window {
     LinkedList next;   // <struct Window *>
     SDL_Texture *buffer;
     struct Display *disp;
+
+    pthread_mutex_t mutex;
 };
 
 void window_subsystem_init();
 
-struct Window *window_get_focused();
+window_id_t window_get_focused();
 void window_set_focus(window_id_t window_id);
 
-struct Window *window_new(struct Window *parent, struct Display *disp, int32_t settion_id, int32_t window_manager, Rect rect, const char *title, Color bg_color);
+window_id_t window_new(window_id_t parent_win, struct Display *disp, int32_t settion_id, int32_t window_manager, Rect rect, const char *title, Color bg_color);
 
-int window_close(struct Window *win);
+int window_close(window_id_t win_id);
 
-int window_draw(struct Window *win, struct Display *disp);
+int window_draw(window_id_t win_id);
 
-struct Window *window_get_by_id(window_id_t window_id);
 
-void window_move_top(struct Window *win);
+bool window_is_valid(window_id_t win_id);
 
-void window_reparent(struct Window *win, struct Window *new_parent);
+// get window without ownnership
+struct Window *window_ref(window_id_t window_id);
+
+// get window with ownnership
+struct Window *window_get_own(window_id_t window_id);
+
+// return ownnership
+void window_return_own(struct Window *win);
+
+void window_move_top(window_id_t win_id);
+
+void window_reparent(window_id_t win_id, window_id_t new_parent_id);
 
 
 // set window attributes

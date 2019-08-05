@@ -1,6 +1,8 @@
 #include "client.h"
 #include "lib/stack.h"
 
+const client_id_t CLIENT_ID_INVALID = -1;
+
 Deque clients;       // <struct Client>
 Stack free_clients;  // <struct Client *>
 
@@ -33,7 +35,7 @@ struct Client *client_new() {
     struct Client *client = DEQUE_TAKE(stack_top(&free_clients), struct Client *);
     stack_pop(&free_clients);
 
-    client->openning_windows = deque_new(0, sizeof(struct Window *));
+    client->openning_windows = deque_new(0, sizeof(window_id_t));
     client->events = deque_new(0, sizeof(struct Event));
     client->is_alive = true;
 
@@ -43,9 +45,9 @@ struct Client *client_new() {
 void client_close(struct Client *client) {
     // close all windows that opened by the client
     while (deque_size(&client->openning_windows)) {
-        struct Window *win = DEQUE_TAKE(deque_back(&client->openning_windows), struct Window *);
+        window_id_t win_id = DEQUE_TAKE(deque_back(&client->openning_windows), window_id_t);
         deque_pop_back(&client->openning_windows);
-        window_close(win);
+        window_close(win_id);
     }
 
     deque_free(&client->openning_windows);
@@ -78,6 +80,6 @@ bool client_event_pop(struct Client *client, struct Event *event) {
     return true;
 }
 
-void client_openning_window_push(struct Client *client, struct Window *win) {
+void client_openning_window_push(struct Client *client, window_id_t win) {
     deque_push_back(&client->openning_windows, &win);
 }

@@ -96,8 +96,6 @@ int main(int argc, char *argv[]) {
                         window_id_t client_window_id = event.param.wm_event_create_window.client_window_id;
                         Rect rect = event.param.wm_event_create_window.rect;
 
-                        sleep(1);
-
                         struct Request req_tmp;
                         struct Response resp_tmp;
 
@@ -230,7 +228,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        usleep(500000);
+        usleep(50000);
     }
 
 CLOSE_SOCK:

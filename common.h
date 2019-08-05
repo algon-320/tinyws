@@ -53,6 +53,23 @@
             *(dst) = tmp;\
         } while (0)
 
+// mutex: pthread_mutex_t*
+#define lock_mutex(mutex) do {\
+    int r = pthread_mutex_lock(mutex);\
+    if (r != 0) {\
+        fprintf(stderr, "can not lock\n");\
+        assert(false);\
+    }\
+} while (0)
+// mutex: pthread_mutex_t*
+#define unlock_mutex(mutex) do {\
+    int r = pthread_mutex_unlock(mutex);\
+    if (r != 0) {\
+        fprintf(stderr, "can not lock\n");\
+        assert(false);\
+    }\
+} while (0)
+
 #define PANIC(...) do { fprintf(stderr, "panic: " __VA_ARGS__); exit(1); } while (0)
 
 #ifdef NDEBUG
@@ -61,8 +78,10 @@
     #define debugprint(...) do { fprintf(stderr, "\x1b[33;1m"); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\x1b[0m"); } while (0)
 #endif
 
-// types
 typedef int32_t client_id_t;
-typedef uint32_t window_id_t;
+extern const client_id_t CLIENT_ID_INVALID;
+
+typedef int32_t window_id_t;
+extern const window_id_t WINDOW_ID_INVALID;
 
 #endif

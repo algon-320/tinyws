@@ -29,40 +29,25 @@
 #include "client.h"
 
 struct Display disp;
-struct Window *root_win;
-struct Window *overlay_win;
+window_id_t root_win_id;
+window_id_t overlay_win_id;
 
 Queue request_queue;  // <struct Request>
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 void request_queue_push(struct Request *req) {
-    int r = pthread_mutex_lock(&mutex);
-    if (r != 0) {
-        fprintf(stderr, "can not lock\n");
-        assert(false);
-        return;
-    }
+    lock_mutex(&mutex);
     {
         queue_push(&request_queue, req);
         pthread_cond_signal(&cond);
     }
-    r = pthread_mutex_unlock(&mutex);
-    if (r != 0) {
-        fprintf(stderr, "can not lock\n");
-        assert(false);
-        return;
-    }
+    unlock_mutex(&mutex);
     return;
 }
 
 bool request_queue_pop(struct Request *req) {
-    int r = pthread_mutex_lock(&mutex);
-    if (r != 0) {
-        fprintf(stderr, "can not lock\n");
-        assert(false);
-        return false;
-    }
+    lock_mutex(&mutex);
     {
         if (queue_empty(&request_queue)) {
             pthread_cond_wait(&cond, &mutex);
@@ -70,12 +55,7 @@ bool request_queue_pop(struct Request *req) {
         *req = *(struct Request *)queue_front(&request_queue);
         queue_pop(&request_queue);
     }
-    r = pthread_mutex_unlock(&mutex);
-    if (r != 0) {
-        fprintf(stderr, "can not lock\n");
-        assert(false);
-        return false;
-    }
+    unlock_mutex(&mutex);
     return true;
 }
 
@@ -90,6 +70,7 @@ void refresh_screen() {
     struct Request request;
     request.type = TINYWS_REQUEST_REFRESH;
     request.source = -1;
+    request.target_window_id = -1;
     request_queue_push(&request);
 }
 
@@ -125,16 +106,16 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
     while (receive_request(buf, BUFFSIZE, in) >= 0) {
         // printf("receive %d bytes: %s\n", rcount, buf);
-        debugprint("buf: [");
-        for (int i = 0; i < 20; i++) {
-            debugprint("%d ", (uint8_t)buf[i]);
-        }
-        debugprint("]\n");
+        // debugprint("buf: [");
+        // for (int i = 0; i < 20; i++) {
+        //     debugprint("%d ", (uint8_t)buf[i]);
+        // }
+        // debugprint("]\n");
         fflush(stdout);
 
         struct Request request = request_decode(buf, BUFFSIZE);
         request.source = client->id;
-        request_print(&request);
+        // request_print(&request);
 
 
         struct Response resp;
@@ -144,15 +125,14 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             // if it is a window management request, process here
             case TINYWS_REQUEST_CREATE_WINDOW:
             {
-                
-                struct Window *parent_win = window_get_by_id(request.target_window_id);
-                if (parent_win == NULL) {
+                window_id_t parent_id = request.target_window_id;
+                if (!window_is_valid(parent_id)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
 
-                struct Window *win = window_new(parent_win, &disp, 
+                window_id_t win_id = window_new(parent_id, &disp, 
                         client->id,
                         -1,
                         request.param.create_window.rect,
@@ -162,23 +142,24 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_WINDOW_ID;
-                resp.content.window_id.id = win->id;
+                resp.content.window_id.id = win_id;
 
                 // top level window only
-                if (parent_win->id == 0) {
-                    client_openning_window_push(client, win);
+                if (parent_id == 0) {
+                    client_openning_window_push(client, win_id);
                 }
                 break;
             }
             case TINYWS_REQUEST_CLOSE_WINDOW:
             {
-                struct Window *win = window_get_by_id(request.target_window_id);
-                if (win == NULL) {
+                window_id_t win_id = request.target_window_id;
+                if (!window_is_valid(win_id)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
-                window_close(win);
+
+                window_close(win_id);
                 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -186,14 +167,18 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             }
             case TINYWS_REQUEST_SET_WINDOW_POS:
             {
-                struct Window *win = window_get_by_id(request.target_window_id);
-                if (win == NULL) {
+                window_id_t win_id = request.target_window_id;
+                if (!window_is_valid(win_id)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
-
-                window_set_pos(win, request.param.set_window_pos.pos);
+                
+                struct Window *win = window_get_own(win_id);
+                {
+                    window_set_pos(win, request.param.set_window_pos.pos);
+                }
+                window_return_own(win);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -201,14 +186,18 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             }
             case TINYWS_REQUEST_SET_WINDOW_VISIBILITY:
             {
-                struct Window *win = window_get_by_id(request.target_window_id);
-                if (win == NULL) {
+                window_id_t win_id = request.target_window_id;
+                if (!window_is_valid(win_id)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
                 
-                window_set_visibility(win, request.param.set_window_visibility.visible ? true : false);
+                struct Window *win = window_get_own(win_id);
+                {
+                    window_set_visibility(win, request.param.set_window_visibility.visible ? true : false);
+                }
+                window_return_own(win);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -216,19 +205,15 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             }
             case TINYWS_REQUEST_WINDOW_REPARENT:
             {
-                struct Window *win = window_get_by_id(request.target_window_id);
-                if (win == NULL) {
+                window_id_t win_id = request.target_window_id;
+                window_id_t par_id = request.param.reparent.parent_window_id;
+                if (!window_is_valid(win_id) || !window_is_valid(par_id)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
-                struct Window *parent = window_get_by_id(request.param.reparent.parent_window_id);
-                if (parent == NULL) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
-                    break;
-                }
-                window_reparent(win, parent);
+
+                window_reparent(win_id, par_id);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -236,7 +221,14 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             }
             case TINYWS_REQUEST_SET_FOCUS:
             {
-                window_set_focus(request.target_window_id);
+                window_id_t win_id = request.target_window_id;
+                if (!window_is_valid(win_id)) {
+                    resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    break;
+                }
+
+                window_set_focus(win_id);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -244,13 +236,14 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             }
             case TINYWS_REQUEST_MOVE_WINDOW_TOP:
             {
-                struct Window *win = window_get_by_id(request.target_window_id);
-                if (win == NULL) {
+                window_id_t win_id = request.target_window_id;
+                if (!window_is_valid(win_id)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
-                window_move_top(win);
+
+                window_move_top(win_id);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -259,19 +252,24 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
             case TINYWS_REQUEST_APPLY_FOR_WM:
             {
-                struct Window *win = window_get_by_id(request.target_window_id);
-                if (win == NULL) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
-                    break;
-                }
-                if (win->window_manager != -1) {
+                window_id_t win_id = request.target_window_id;
+                if (!window_is_valid(win_id)) {
                     resp.success = 0;
                     resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
 
-                window_set_wm(win, client->id);
+                struct Window *win = window_get_own(win_id);
+                {
+                    if (win->window_manager != -1) {
+                        resp.success = 0;
+                        resp.type = TINYWS_RESPONSE_NOCONTENT;
+                        window_return_own(win);
+                        break;
+                    }
+                    window_set_wm(win, client->id);
+                }
+                window_return_own(win);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -300,8 +298,10 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             case TINYWS_REQUEST_DRAW_PIXEL:
             case TINYWS_REQUEST_CLEAR_WINDOW:
             {
-                if (window_get_by_id(request.target_window_id) == NULL) {
+                window_id_t win_id = request.target_window_id;
+                if (!window_is_valid(win_id)) {
                     resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
                     break;
                 }
                 
@@ -371,7 +371,8 @@ int event_thread() {
             exit(1);
         }
 
-        struct Window *focused_win = window_get_focused();
+        window_id_t focused_win_id = window_get_focused();
+        struct Window *focused_win = window_get_own(focused_win_id);
         if (focused_win == NULL) {
             continue;
         }
@@ -466,6 +467,8 @@ int event_thread() {
             client_event_push(focused_client, &tinyws_event);
         }
 
+        window_return_own(focused_win);
+
         debugprint("event push: id=%d ", focused_win->id);
         event_print(&tinyws_event);
         
@@ -494,70 +497,27 @@ static uint32_t mouse_cursor_bitmap[16][16] = {
 	{0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0},
 };
 
-int init() {
-    SDL_CALL_NONNEG(SDL_Init, SDL_INIT_VIDEO);
-    SDL_ShowCursor(SDL_DISABLE);
-
-    const int DISPLAY_WIDTH  = 1280;
-    const int DISPLAY_HEIGHT = 960;
-    
-    if (display_new(&disp, size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "tinyws virtual display") < 0) {
-        return -1;
-    }
-
-    window_subsystem_init();
-    client_subsystem_init();
-
-    request_queue = queue_new(sizeof(struct Request));
-    
-    // root window
-    root_win = window_new(NULL, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
-    // overlay window
-    overlay_win = window_new(NULL, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
-    linked_list_insert_next(&root_win->next, &overlay_win->next);
-
-    window_set_focus(root_win->id);
-
-    return 0;
-}
-
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s portno\n", argv[0]);
-        return 1;
-    }
-
-    int exit_status = 0;
-    if (init() < 0) {
-        return -1;
-    }
-
-    pthread_t event_thread_id;
-    if (pthread_create(&event_thread_id, NULL, (void *)event_thread, NULL) != 0) {
-        perror("pthread_create(): drawing");
-        exit_status = -1;
-        goto EXIT_QUIT;
-    }
-
-    pthread_t wait_for_connection_thread_id;
-    struct wait_for_connection_thread_arg arg;
-    arg.portno = strtol(argv[1], NULL, 10);
-    if (pthread_create(&wait_for_connection_thread_id, NULL, (void *)wait_for_connection_thread, &arg) != 0) {
-        perror("pthread_create(): drawing");
-        exit_status = -1;
-        goto EXIT_QUIT;
-    }
-
-    // drawing
+// window management and drawing
+int main_thread() {
     while (1) {
         struct Request request;
         request_queue_pop(&request);
 
-        clear_screen(root_win);
-        clear_screen(overlay_win);
+        {
+            struct Window *root_win = window_get_own(root_win_id);
+            clear_screen(root_win);
+            window_return_own(root_win);
+        }
+
+        {
+            struct Window *overlay_win = window_get_own(overlay_win_id);
+            clear_screen(overlay_win);
+            window_return_own(overlay_win);
+        }
 
         // mouse cursor
         {
+            struct Window *overlay_win = window_get_own(overlay_win_id);
             int mouse_x, mouse_y;
             int pushed = SDL_GetMouseState(&mouse_x, &mouse_y);
             Color c1 = color_new(0, 0, 0, 255);
@@ -585,11 +545,12 @@ int main(int argc, char *argv[]) {
                 }
             }
             disp.curosr_pos = point_new(mouse_x, mouse_y);
+            window_return_own(overlay_win);
         }
 
-        debugprint("drawing --> "); request_print(&request);
+        // debugprint("drawing --> "); request_print(&request);
 
-        struct Window *target_win = window_get_by_id(request.target_window_id);
+        struct Window *target_win = window_get_own(request.target_window_id);
         switch (request.type) {
             case TINYWS_REQUEST_DRAW_RECT:
             {
@@ -657,28 +618,104 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
+        window_return_own(target_win);
 
-        debugprint("draw ok\n");
 
         SDL_SetRenderDrawColor(disp.ren, 0, 0, 0, 0);
         SDL_SetRenderTarget(disp.ren, NULL);
         SDL_RenderClear(disp.ren);
         
         // draw windows
-        window_draw(root_win, &disp);
+        window_draw(root_win_id);
+
+        // debugprint("draw ok\n");
 
         // update screen
         display_flush(&disp);
     }
+}
 
+int initialize() {
+    SDL_CALL_NONNEG(SDL_Init, SDL_INIT_VIDEO);
+    SDL_ShowCursor(SDL_DISABLE);
+
+    const int DISPLAY_WIDTH  = 1280;
+    const int DISPLAY_HEIGHT = 960;
+    
+    if (display_new(&disp, size_new(DISPLAY_WIDTH, DISPLAY_HEIGHT), "tinyws virtual display") < 0) {
+        return -1;
+    }
+
+    window_subsystem_init();
+    client_subsystem_init();
+
+    request_queue = queue_new(sizeof(struct Request));
+    
+    // root window
+    root_win_id = window_new(WINDOW_ID_INVALID, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
+    debugprint("root_win ok\n");
+    // overlay window
+    overlay_win_id = window_new(WINDOW_ID_INVALID, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
+    debugprint("overlay_win ok\n");
+
+    struct Window *root_win = window_get_own(root_win_id);
+    {
+        struct Window *overlay_win = window_ref(overlay_win_id);
+        linked_list_insert_next(&root_win->next, &overlay_win->next);
+    }
+    window_return_own(root_win);
+
+    window_set_focus(root_win_id);
+
+    return 0;
+}
+
+int finalize() {
     display_release(&disp);
     queue_free(&request_queue);
+    SDL_Quit();
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s portno\n", argv[0]);
+        return 1;
+    }
+
+    int exit_status = 0;
+    if (initialize() < 0) {
+        return -1;
+    }
+
+    debugprint("initialize finished\n");
+
+    pthread_t event_thread_id;
+    if (pthread_create(&event_thread_id, NULL, (void *)event_thread, NULL) != 0) {
+        perror("pthread_create(): drawing");
+        exit_status = -1;
+        goto EXIT_QUIT;
+    }
+
+    pthread_t wait_for_connection_thread_id;
+    struct wait_for_connection_thread_arg arg;
+    arg.portno = strtol(argv[1], NULL, 10);
+    if (pthread_create(&wait_for_connection_thread_id, NULL, (void *)wait_for_connection_thread, &arg) != 0) {
+        perror("pthread_create(): drawing");
+        exit_status = -1;
+        goto EXIT_QUIT;
+    }
+
+    debugprint("start main thread\n");
+    main_thread();
 
     pthread_join(event_thread_id, NULL);
-
+    pthread_join(wait_for_connection_thread_id, NULL);
     exit_status = 0;
 
 EXIT_QUIT:
-    SDL_Quit();
+    if (finalize() < 0) {
+        return -1;
+    }
     return exit_status;
 }
