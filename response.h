@@ -9,7 +9,7 @@
 
 typedef enum {
     TINYWS_RESPONSE_NOCONTENT,
-    TINYWS_RESPONSE_WINDOW_ID,
+    TINYWS_RESPONSE_WINDOW_INFO,
     TINYWS_RESPONSE_EVENT_NOTIFY,
 } ResponseType;
 
@@ -20,7 +20,8 @@ struct Response {
     union {
         struct {
             window_id_t id;
-        } window_id;
+            Rect rect;
+        } window_info;
         struct {
             struct Event event;
         } event_notify;

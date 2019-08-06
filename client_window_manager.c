@@ -81,6 +81,10 @@ int main(int argc, char *argv[]) {
 
     window_id_t frame_window_id_map[1024];
 
+    int prev_pos_x = -1;
+    int prev_pos_y = -1;
+    window_id_t clicked_win_id = -1;
+
     while (1) {
         request.type = TINYWS_REQUEST_GET_EVENT;
 
@@ -112,9 +116,9 @@ int main(int argc, char *argv[]) {
                             req_tmp.param.create_window.rect = rect;
                             req_tmp.param.create_window.bg_color = color_new(0x4D, 0x4D, 0x4D, 0);
                             resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_ID);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
                             assert(resp_tmp.success);
-                            frame_window_id = resp_tmp.content.window_id.id;
+                            frame_window_id = resp_tmp.content.window_info.id;
                         }
 
                         frame_window_id_map[client_window_id] = frame_window_id;
@@ -223,12 +227,76 @@ int main(int argc, char *argv[]) {
                         }
                         break;
                     }
+                    case TINYWS_EVENT_MOUSE_DOWN:
+                    {
+                        prev_pos_x = resp.content.event_notify.event.param.mouse.display_pos_x;
+                        prev_pos_y = resp.content.event_notify.event.param.mouse.display_pos_y;
+                        clicked_win_id = resp.content.event_notify.event.param.mouse.top_window_id;
+                        
+                        struct Request req_tmp;
+                        struct Response resp_tmp;
+                        {
+                            req_tmp.type = TINYWS_REQUEST_MOVE_WINDOW_TOP;
+                            req_tmp.target_window_id = resp.content.event_notify.event.param.mouse.top_window_id;
+                            resp_tmp = interact(&req_tmp, in, out);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
+                            assert(resp_tmp.success);
+                        }
+                        {
+                            req_tmp.type = TINYWS_REQUEST_SET_FOCUS;
+                            req_tmp.target_window_id = resp.content.event_notify.event.param.mouse.top_window_id;
+                            resp_tmp = interact(&req_tmp, in, out);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
+                            assert(resp_tmp.success);
+                        }
+                        break;
+                    }
+                    case TINYWS_EVENT_MOUSE_UP:
+                    {
+                        if (prev_pos_x != -1) {
+                            int cur_pos_x = resp.content.event_notify.event.param.mouse.display_pos_x;
+                            int cur_pos_y = resp.content.event_notify.event.param.mouse.display_pos_y;
+                            int dx = cur_pos_x - prev_pos_x;
+                            int dy = cur_pos_y - prev_pos_y;
+                            
+                            // move window
+                            struct Request req_tmp;
+                            struct Response resp_tmp;
+                            Rect win_rect;
+                            {
+                                req_tmp.type = TINYWS_REQUEST_GET_WINDOW_INFO;
+                                req_tmp.target_window_id = clicked_win_id;
+                                resp_tmp = interact(&req_tmp, in, out);
+                                assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
+                                assert(resp_tmp.success);
+                                win_rect = resp_tmp.content.window_info.rect;
+                            }
+                            {
+                                req_tmp.type = TINYWS_REQUEST_SET_WINDOW_POS;
+                                req_tmp.target_window_id = clicked_win_id;
+                                req_tmp.param.set_window_pos.pos = point_new(win_rect.x + dx, win_rect.y + dy);
+                                resp_tmp = interact(&req_tmp, in, out);
+                                assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
+                                assert(resp_tmp.success);
+                            }
+
+                            prev_pos_x = cur_pos_x;
+                            prev_pos_y = cur_pos_y;
+                        }
+                        prev_pos_x = -1;
+                        prev_pos_y = -1;
+                        break;
+                    }
+                    case TINYWS_EVENT_MOUSE_MOVE:
+                    {
+                        break;
+                    }
                 }
                 break;
             }
         }
 
-        usleep(50000);
+        // usleep(5000);
     }
 
 CLOSE_SOCK:

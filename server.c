@@ -32,8 +32,7 @@ struct Display disp;
 window_id_t root_win_id;
 window_id_t overlay_win_id;
 
-pthread_mutex_t mutex
-        = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex;
 
 bool request_is_null;
 struct Request request;
@@ -155,8 +154,9 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                         );
 
                 resp.success = 1;
-                resp.type = TINYWS_RESPONSE_WINDOW_ID;
-                resp.content.window_id.id = win_id;
+                resp.type = TINYWS_RESPONSE_WINDOW_INFO;
+                resp.content.window_info.id = win_id;
+                resp.content.window_info.rect = request.param.create_window.rect;
 
                 // top level window only
                 if (parent_id == 0) {
@@ -215,6 +215,25 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
+                break;
+            }
+            case TINYWS_REQUEST_GET_WINDOW_INFO:
+            {
+                window_id_t win_id = request.target_window_id;
+                if (!window_is_valid(win_id)) {
+                    resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    break;
+                }
+
+                resp.success = 1;
+                resp.type = TINYWS_RESPONSE_WINDOW_INFO;
+                struct Window *win = window_get_own(win_id);
+                {
+                    resp.content.window_info.id = win->id;
+                    resp.content.window_info.rect = rect_new(win->pos.x, win->pos.y, win->size.width, win->size.height);
+                }
+                window_return_own(win);
                 break;
             }
             case TINYWS_REQUEST_WINDOW_REPARENT:
@@ -432,20 +451,20 @@ int event_thread() {
             {
                 int mouse_x = event.button.x;
                 int mouse_y = event.button.y;
-                if (window_check_inner_point(focused_win, point_new(mouse_x, mouse_y))) {
-                    // inner of focused window
-                    tinyws_event.type = TINYWS_EVENT_MOUSE_DOWN;
-                    switch (event.button.button) {
-                        case SDL_BUTTON_LEFT:
-                            tinyws_event.param.mouse.button = TINYWS_MOUSE_LEFT_BUTTON;
-                            break;
-                        case SDL_BUTTON_RIGHT:
-                            tinyws_event.param.mouse.button = TINYWS_MOUSE_RIGHT_BUTTON;
-                            break;
-                    }
-                    tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
-                    tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
+                tinyws_event.type = TINYWS_EVENT_MOUSE_DOWN;
+                switch (event.button.button) {
+                    case SDL_BUTTON_LEFT:
+                        tinyws_event.param.mouse.button = TINYWS_MOUSE_LEFT_BUTTON;
+                        break;
+                    case SDL_BUTTON_RIGHT:
+                        tinyws_event.param.mouse.button = TINYWS_MOUSE_RIGHT_BUTTON;
+                        break;
                 }
+                tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
+                tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
+                tinyws_event.param.mouse.display_pos_x = event.button.x;
+                tinyws_event.param.mouse.display_pos_y = event.button.y;
+                tinyws_event.param.mouse.top_window_id = window_get_top(root_win_id, point_new(mouse_x, mouse_y));
                 break;
             }
             case SDL_MOUSEBUTTONUP:
@@ -461,6 +480,9 @@ int event_thread() {
                 }
                 tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
                 tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
+                tinyws_event.param.mouse.display_pos_x = event.button.x;
+                tinyws_event.param.mouse.display_pos_y = event.button.y;
+                tinyws_event.param.mouse.top_window_id = window_get_top(root_win_id, point_new(event.button.x, event.button.y));
                 break;
             }
             case SDL_MOUSEMOTION:
@@ -468,6 +490,9 @@ int event_thread() {
                 tinyws_event.type = TINYWS_EVENT_MOUSE_MOVE;
                 tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
                 tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
+                tinyws_event.param.mouse.display_pos_x = event.button.x;
+                tinyws_event.param.mouse.display_pos_y = event.button.y;
+                tinyws_event.param.mouse.top_window_id = window_get_top(root_win_id, point_new(event.button.x, event.button.y));
                 break;
             }
         }
@@ -490,6 +515,9 @@ int event_thread() {
         
         // 再描画
         refresh_screen();
+
+        // ignore mouse move event
+        SDL_FlushEvent(SDL_MOUSEMOTION);
     }
     return 0;
 }
@@ -610,6 +638,7 @@ int main_thread() {
             }
             case TINYWS_REQUEST_DRAW_PIXEL:
             {
+                assert(target_win);
                 int x = request.param.draw_pixel.p.x;
                 int y = request.param.draw_pixel.p.y;
                 Color c = request.param.draw_pixel.color;
@@ -637,13 +666,13 @@ int main_thread() {
         }
         window_return_own(target_win);
 
-
         SDL_SetRenderDrawColor(disp.ren, 0, 0, 0, 0);
         SDL_SetRenderTarget(disp.ren, NULL);
         SDL_RenderClear(disp.ren);
         
         // draw windows
         window_draw(root_win_id);
+        window_draw(overlay_win_id);
 
         // debugprint("draw ok\n");
 
@@ -666,19 +695,17 @@ int initialize() {
     window_subsystem_init();
     client_subsystem_init();
     
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutexattr_init(&mutex_attr);
+    pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_RECURSIVE_NP);
+    pthread_mutex_init(&mutex, &mutex_attr);
+
     // root window
     root_win_id = window_new(WINDOW_ID_INVALID, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
     debugprint("root_win ok\n");
     // overlay window
     overlay_win_id = window_new(WINDOW_ID_INVALID, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
     debugprint("overlay_win ok\n");
-
-    struct Window *root_win = window_get_own(root_win_id);
-    {
-        struct Window *overlay_win = window_ref(overlay_win_id);
-        linked_list_insert_next(&root_win->next, &overlay_win->next);
-    }
-    window_return_own(root_win);
 
     window_set_focus(root_win_id);
 

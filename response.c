@@ -16,10 +16,14 @@ void response_print(const struct Response *resp) {
             printf("TINYWS_RESPONSE_NOCONTENT\n");
             break;
         }
-        case TINYWS_RESPONSE_WINDOW_ID:
+        case TINYWS_RESPONSE_WINDOW_INFO:
         {
-            printf("TINYWS_RESPONSE_WINDOW_ID(id=%d)\n",
-                    resp->content.window_id.id
+            printf("TINYWS_RESPONSE_WINDOW_INFO(id=%d, rect=(%d,%d,%d,%d))\n",
+                    resp->content.window_info.id,
+                    resp->content.window_info.rect.x,
+                    resp->content.window_info.rect.y,
+                    resp->content.window_info.rect.width,
+                    resp->content.window_info.rect.height
                     );
             break;
         }
@@ -43,9 +47,10 @@ size_t response_encode(const struct Response *resp, uint8_t *out, size_t size) {
         {
             break;
         }
-        case TINYWS_RESPONSE_WINDOW_ID:
+        case TINYWS_RESPONSE_WINDOW_INFO:
         {
-            WRITE_INT_LE(resp->content.window_id.id, &nxt);
+            WRITE_INT_LE(resp->content.window_info.id, &nxt);
+            rect_encode(&resp->content.window_info.rect, &nxt);
             break;
         }
         case TINYWS_RESPONSE_EVENT_NOTIFY:
@@ -69,9 +74,10 @@ struct Response response_decode(const uint8_t *buf, size_t size) {
         {
             break;
         }
-        case TINYWS_RESPONSE_WINDOW_ID:
+        case TINYWS_RESPONSE_WINDOW_INFO:
         {
-            READ_INT_LE(&buf, &ret.content.window_id.id);
+            READ_INT_LE(&buf, &ret.content.window_info.id);
+            rect_decode(&buf, &ret.content.window_info.rect);
             break;
         }
         case TINYWS_RESPONSE_EVENT_NOTIFY:

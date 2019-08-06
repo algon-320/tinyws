@@ -30,13 +30,19 @@ void window_subsystem_init() {
 }
 
 window_id_t window_get_focused() {
-    return focused;
+    window_id_t ret;
+    lock_mutex(&windows_mutex);
+    ret = focused;
+    unlock_mutex(&windows_mutex);
+    return ret;
 }
 
 void window_set_focus(window_id_t win_id) {
+    lock_mutex(&windows_mutex);
     if (window_is_valid(win_id)) {
         focused = win_id;
     }
+    unlock_mutex(&windows_mutex);
 }
 
 window_id_t window_new(window_id_t parent_id, struct Display *disp, client_id_t client_id, client_id_t window_manager, Rect rect, const char *title, Color bg_color) {
@@ -127,8 +133,6 @@ window_id_t window_new(window_id_t parent_id, struct Display *disp, client_id_t 
 
 void window_print_all();
 
-pthread_mutex_t sdl_texture = PTHREAD_MUTEX_INITIALIZER;
-
 int window_close_ptr(struct Window *win) {
     if (win == NULL) {
         return -1;
@@ -161,10 +165,8 @@ int window_close_ptr(struct Window *win) {
     win->window_manager = -1;
     win->client_id = -1;
 
-    lock_mutex(&sdl_texture);
     assert(win->buffer);
     SDL_DestroyTexture(win->buffer);
-    unlock_mutex(&sdl_texture);
 
     win->parent = NULL;
     win->buffer = NULL;
@@ -325,7 +327,6 @@ void window_move_top(window_id_t win_id) {
     if (!win->next.next) {
         // already top
         debugprint("window_move_top: %d already top\n", win_id);
-        return;
     } else {
         LinkedList *ptr = win->next.next;
         linked_list_erase(&win->next);
@@ -334,7 +335,6 @@ void window_move_top(window_id_t win_id) {
         }
         linked_list_insert_next(ptr, &win->next);
     }
-
     window_return_own(win);
 }
 
@@ -381,4 +381,31 @@ bool window_check_inner_point(struct Window *win, Point p) {
             && p.x < win->pos.x + win->size.width
             && win->pos.y <= p.y
             && p.y < win->pos.y + win->size.height);
+}
+
+window_id_t window_get_top_ptr(struct Window *win, Point p) {
+    if (!win) return WINDOW_ID_INVALID;
+    window_id_t ret = WINDOW_ID_INVALID;
+    if (window_check_inner_point(win, p)) {
+        ret = win->id;
+    }
+    LinkedList *list = &win->child;
+    while (list->next) {
+        list = list->next;
+        struct Window *tmp = CONTAINNER_OF(list, struct Window, next);
+        Point rel_p = point_new(p.x - win->pos.x, p.y - win->pos.y);
+        if (window_check_inner_point(tmp, rel_p)) {
+            window_id_t res = window_get_top_ptr(tmp, rel_p);
+            if (res != WINDOW_ID_INVALID) {
+                ret = res;
+            }
+        }
+    }
+    return ret;
+}
+window_id_t window_get_top(window_id_t win_id, Point p) {
+    struct Window *win = window_get_own(win_id);
+    window_id_t ret = window_get_top_ptr(win, p);
+    window_return_own(win);
+    return ret;
 }

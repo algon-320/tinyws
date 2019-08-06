@@ -211,6 +211,10 @@ size_t request_encode(const struct Request *request, uint8_t *out, size_t size) 
             WRITE_INT_LE(request->param.set_window_visibility.visible, &nxt);
             break;
         }
+        case TINYWS_REQUEST_GET_WINDOW_INFO:
+        {
+            break;
+        }
         case TINYWS_REQUEST_WINDOW_REPARENT:
         {
             WRITE_INT_LE(request->param.reparent.parent_window_id, &nxt);
@@ -315,6 +319,10 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
         {
             ret.type = TINYWS_REQUEST_SET_WINDOW_VISIBILITY;
             READ_INT_LE(&buf, &ret.param.set_window_visibility.visible);
+            break;
+        }
+        case TINYWS_REQUEST_GET_WINDOW_INFO:
+        {
             break;
         }
         case TINYWS_REQUEST_WINDOW_REPARENT:
