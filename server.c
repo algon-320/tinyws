@@ -32,31 +32,45 @@ struct Display disp;
 window_id_t root_win_id;
 window_id_t overlay_win_id;
 
-Queue request_queue;  // <struct Request>
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex
+        = PTHREAD_MUTEX_INITIALIZER;
 
-void request_queue_push(struct Request *req) {
+bool request_is_null;
+struct Request request;
+pthread_cond_t cond_req_null
+        = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_req_non_null
+        = PTHREAD_COND_INITIALIZER;
+
+struct Response *response;
+pthread_cond_t cond_res_null
+        = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_res_non_null
+        = PTHREAD_COND_INITIALIZER;
+
+void request_put(struct Request *req) {
     lock_mutex(&mutex);
     {
-        queue_push(&request_queue, req);
-        pthread_cond_signal(&cond);
-    }
-    unlock_mutex(&mutex);
-    return;
-}
-
-bool request_queue_pop(struct Request *req) {
-    lock_mutex(&mutex);
-    {
-        if (queue_empty(&request_queue)) {
-            pthread_cond_wait(&cond, &mutex);
+        if (!request_is_null) {
+            pthread_cond_wait(&cond_req_null, &mutex);
         }
-        *req = *(struct Request *)queue_front(&request_queue);
-        queue_pop(&request_queue);
+        request = *req;
+        request_is_null = false;
     }
     unlock_mutex(&mutex);
-    return true;
+    pthread_cond_signal(&cond_req_non_null);
+}
+void request_take(struct Request *req) {
+    lock_mutex(&mutex);
+    {
+        if (request_is_null) {
+            pthread_cond_wait(&cond_req_non_null, &mutex);
+        }
+        *req = request;
+        request_is_null = true;
+    }
+    unlock_mutex(&mutex);
+    pthread_cond_signal(&cond_req_null);
 }
 
 int receive_request(uint8_t *line, size_t size, FILE *in) {
@@ -67,11 +81,11 @@ int receive_request(uint8_t *line, size_t size, FILE *in) {
 }
 
 void refresh_screen() {
-    struct Request request;
-    request.type = TINYWS_REQUEST_REFRESH;
-    request.source = -1;
-    request.target_window_id = -1;
-    request_queue_push(&request);
+    struct Request req;
+    req.type = TINYWS_REQUEST_REFRESH;
+    req.source = -1;
+    req.target_window_id = -1;
+    request_put(&req);
 }
 
 struct interaction_thread_arg {
@@ -115,7 +129,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
         struct Request request = request_decode(buf, BUFFSIZE);
         request.source = cleint_id;
-        // request_print(&request);
+        request_print(&request);
 
 
         struct Response resp;
@@ -261,7 +275,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
 
                 struct Window *win = window_get_own(win_id);
                 {
-                    if (win->window_manager != -1) {
+                    if (client_is_valid(win->window_manager)) {
                         resp.success = 0;
                         resp.type = TINYWS_RESPONSE_NOCONTENT;
                         window_return_own(win);
@@ -305,7 +319,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                     break;
                 }
                 
-                request_queue_push(&request);
+                request_put(&request);
 
                 resp.success = 1;
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
@@ -332,7 +346,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
     printf("connection closed.\n");
     fclose(in);
     fclose(out);
-    
+
     free(arg);
     return 0;
 }
@@ -503,7 +517,7 @@ static uint32_t mouse_cursor_bitmap[16][16] = {
 int main_thread() {
     while (1) {
         struct Request request;
-        request_queue_pop(&request);
+        request_take(&request);
 
         {
             struct Window *root_win = window_get_own(root_win_id);
@@ -556,6 +570,7 @@ int main_thread() {
         switch (request.type) {
             case TINYWS_REQUEST_DRAW_RECT:
             {
+                debugprint("draw_rect\n");
                 assert(target_win);
                 int x = request.param.draw_rect.rect.x;
                 int y = request.param.draw_rect.rect.y;
@@ -650,8 +665,6 @@ int initialize() {
 
     window_subsystem_init();
     client_subsystem_init();
-
-    request_queue = queue_new(sizeof(struct Request));
     
     // root window
     root_win_id = window_new(WINDOW_ID_INVALID, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
@@ -669,12 +682,12 @@ int initialize() {
 
     window_set_focus(root_win_id);
 
+    request_is_null = true;
     return 0;
 }
 
 int finalize() {
     display_release(&disp);
-    queue_free(&request_queue);
     SDL_Quit();
     return 0;
 }

@@ -46,7 +46,7 @@ window_id_t window_new(window_id_t parent_id, struct Display *disp, client_id_t 
     win->disp = NULL;
     linked_list_init(&win->next, NULL, NULL);
     linked_list_init(&win->child, NULL, NULL);
-    pthread_mutex_init(&win->mutex, NULL);
+
     window_id_t window_id = win->id;
 
     lock_mutex(&windows_mutex);
@@ -133,7 +133,7 @@ int window_close_ptr(struct Window *win) {
     if (win == NULL) {
         return -1;
     }
-    
+
     debugprint("window_close win=%d\n", win->id);
 
     // send event to the parent
@@ -170,10 +170,8 @@ int window_close_ptr(struct Window *win) {
     win->buffer = NULL;
     win->disp = NULL;
 
-    window_id_t win_id = win->id;
+    DEQUE_TAKE(deque_at(&windows_ptr, win->id), struct Window *) = NULL;
     free(win);
-    win = NULL;
-    DEQUE_TAKE(deque_at(&windows_ptr, win_id), struct Window *) = NULL;
     return 0;
 }
 int window_close(window_id_t win_id) {
@@ -244,6 +242,7 @@ int window_draw(window_id_t win_id) {
         return -1;
     }
     struct Window *win = window_get_own(win_id);
+    // debugprint("window_draw ==============\n");
     window_draw_ptr(win);
     window_return_own(win);
     return 0;
@@ -282,7 +281,6 @@ struct Window *window_get_own(window_id_t win_id) {
         unlock_mutex(&windows_mutex);
         return NULL;
     }
-    lock_mutex(&win->mutex);
     return win;
 }
 
@@ -291,7 +289,6 @@ void window_return_own(struct Window *win) {
     if (!win) {
         return;
     }
-    unlock_mutex(&win->mutex);
     unlock_mutex(&windows_mutex);
 }
 

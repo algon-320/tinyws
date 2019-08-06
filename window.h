@@ -25,8 +25,6 @@ struct Window {
     LinkedList next;   // <struct Window *>
     SDL_Texture *buffer;
     struct Display *disp;
-
-    pthread_mutex_t mutex;
 };
 
 void window_subsystem_init();

@@ -13,9 +13,9 @@ struct Client {
     client_id_t id;
     bool is_alive;
     Deque openning_windows;  // <window_id_t>
-    Queue events; // <struct Event>
+    Queue events;            // <struct Event>
 
-    pthread_mutex_t mutex;
+    pthread_cond_t events_non_empty;
 };
 
 void client_subsystem_init();
