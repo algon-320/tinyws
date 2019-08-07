@@ -15,35 +15,35 @@ const char *mouse_button_name(enum MouseButton button) {
 void event_print(const struct Event *event) {
     switch (event->type) {
     case TINYWS_EVENT_MOUSE_DOWN:
-        printf("TINYWS_EVENT_MOUSE_DOWN(win=%d, button=%s, x=%d, y=%d, disp_x=%d, disp_y=%d, top_win=%d)\n",
+        printf("TINYWS_EVENT_MOUSE_DOWN(win=%d, button=%s, x=%d, y=%d, disp_x=%d, disp_y=%d, front_win=%d)\n",
                 event->window_id,
                 mouse_button_name(event->param.mouse.button),
                 event->param.mouse.pos_x,
                 event->param.mouse.pos_y,
                 event->param.mouse.display_pos_x,
                 event->param.mouse.display_pos_y,
-                event->param.mouse.top_window_id
+                event->param.mouse.front_window_id
                 );
         break;
     case TINYWS_EVENT_MOUSE_UP:
-        printf("TINYWS_EVENT_MOUSE_UP(win=%d, button=%s, x=%d, y=%d, disp_x=%d, disp_y=%d, top_win=%d)\n",
+        printf("TINYWS_EVENT_MOUSE_UP(win=%d, button=%s, x=%d, y=%d, disp_x=%d, disp_y=%d, front_win=%d)\n",
                 event->window_id,
                 mouse_button_name(event->param.mouse.button),
                 event->param.mouse.pos_x,
                 event->param.mouse.pos_y,
                 event->param.mouse.display_pos_x,
                 event->param.mouse.display_pos_y,
-                event->param.mouse.top_window_id
+                event->param.mouse.front_window_id
                 );
         break;
     case TINYWS_EVENT_MOUSE_MOVE:
-        printf("TINYWS_EVENT_MOUSE_MOVE(win=%d, x=%d, y=%d, disp_x=%d, disp_y=%d, top_win=%d)\n",
+        printf("TINYWS_EVENT_MOUSE_MOVE(win=%d, x=%d, y=%d, disp_x=%d, disp_y=%d, front_win=%d)\n",
                 event->window_id,
                 event->param.mouse.pos_x,
                 event->param.mouse.pos_y,
                 event->param.mouse.display_pos_x,
                 event->param.mouse.display_pos_y,
-                event->param.mouse.top_window_id
+                event->param.mouse.front_window_id
                 );
         break;
     case TINYWS_EVENT_KEY_DOWN:
@@ -89,7 +89,7 @@ size_t event_encode(const struct Event *event, uint8_t **out) {
             WRITE_INT_LE(event->param.mouse.pos_y, &nxt);
             WRITE_INT_LE(event->param.mouse.display_pos_x, &nxt);
             WRITE_INT_LE(event->param.mouse.display_pos_y, &nxt);
-            WRITE_INT_LE(event->param.mouse.top_window_id, &nxt);
+            WRITE_INT_LE(event->param.mouse.front_window_id, &nxt);
             break;
         }
         case TINYWS_EVENT_KEY_DOWN:
@@ -130,7 +130,7 @@ struct Event event_decode(const uint8_t **in) {
             READ_INT_LE(in, &event.param.mouse.pos_y);
             READ_INT_LE(in, &event.param.mouse.display_pos_x);
             READ_INT_LE(in, &event.param.mouse.display_pos_y);
-            READ_INT_LE(in, &event.param.mouse.top_window_id);
+            READ_INT_LE(in, &event.param.mouse.front_window_id);
             break;
         }
         case TINYWS_EVENT_KEY_DOWN:

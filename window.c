@@ -383,7 +383,7 @@ bool window_check_inner_point(struct Window *win, Point p) {
             && p.y < win->pos.y + win->size.height);
 }
 
-window_id_t window_get_top_ptr(struct Window *win, Point p) {
+window_id_t window_get_front_ptr(struct Window *win, Point p) {
     if (!win) return WINDOW_ID_INVALID;
     window_id_t ret = WINDOW_ID_INVALID;
     if (window_check_inner_point(win, p)) {
@@ -395,7 +395,7 @@ window_id_t window_get_top_ptr(struct Window *win, Point p) {
         struct Window *tmp = CONTAINNER_OF(list, struct Window, next);
         Point rel_p = point_new(p.x - win->pos.x, p.y - win->pos.y);
         if (window_check_inner_point(tmp, rel_p)) {
-            window_id_t res = window_get_top_ptr(tmp, rel_p);
+            window_id_t res = window_get_front_ptr(tmp, rel_p);
             if (res != WINDOW_ID_INVALID) {
                 ret = res;
             }
@@ -403,9 +403,9 @@ window_id_t window_get_top_ptr(struct Window *win, Point p) {
     }
     return ret;
 }
-window_id_t window_get_top(window_id_t win_id, Point p) {
+window_id_t window_get_front(window_id_t win_id, Point p) {
     struct Window *win = window_get_own(win_id);
-    window_id_t ret = window_get_top_ptr(win, p);
+    window_id_t ret = window_get_front_ptr(win, p);
     window_return_own(win);
     return ret;
 }

@@ -252,6 +252,43 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 resp.type = TINYWS_RESPONSE_NOCONTENT;
                 break;
             }
+            case TINYWS_REQUEST_GET_TOPLEVEL_WINDOW:
+            {
+                window_id_t win_id = request.target_window_id;
+                window_id_t root_id = request.param.get_toplevel_window.root_win_id;
+                if (!window_is_valid(win_id) || !window_is_valid(root_id)) {
+                    resp.success = 0;
+                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    break;
+                }
+
+                struct Window *win = window_get_own(win_id);
+                {
+                    struct Window *tmp = win;
+                    while (tmp->parent) {
+                        if (tmp->parent->id == root_id) {
+                            break;
+                        }
+                        tmp = tmp->parent;
+                    }
+                    if (tmp->parent) {
+                        resp.success = 1;
+                        resp.type = TINYWS_RESPONSE_WINDOW_INFO;
+                        resp.content.window_info.id = tmp->id;
+                        resp.content.window_info.rect = rect_new(
+                                tmp->pos.x,
+                                tmp->pos.y,
+                                tmp->size.width,
+                                tmp->size.height
+                                );
+                    } else {
+                        resp.success = 0;
+                        resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    }
+                }
+                window_return_own(win);
+                break;
+            }
             case TINYWS_REQUEST_SET_FOCUS:
             {
                 window_id_t win_id = request.target_window_id;
@@ -464,7 +501,8 @@ int event_thread() {
                 tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
                 tinyws_event.param.mouse.display_pos_x = event.button.x;
                 tinyws_event.param.mouse.display_pos_y = event.button.y;
-                tinyws_event.param.mouse.top_window_id = window_get_top(root_win_id, point_new(mouse_x, mouse_y));
+                window_id_t front_win_id = window_get_front(root_win_id, point_new(mouse_x, mouse_y));
+                tinyws_event.param.mouse.front_window_id = front_win_id;
                 break;
             }
             case SDL_MOUSEBUTTONUP:
@@ -482,7 +520,7 @@ int event_thread() {
                 tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
                 tinyws_event.param.mouse.display_pos_x = event.button.x;
                 tinyws_event.param.mouse.display_pos_y = event.button.y;
-                tinyws_event.param.mouse.top_window_id = window_get_top(root_win_id, point_new(event.button.x, event.button.y));
+                tinyws_event.param.mouse.front_window_id = window_get_front(root_win_id, point_new(event.button.x, event.button.y));
                 break;
             }
             case SDL_MOUSEMOTION:
@@ -492,20 +530,22 @@ int event_thread() {
                 tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
                 tinyws_event.param.mouse.display_pos_x = event.button.x;
                 tinyws_event.param.mouse.display_pos_y = event.button.y;
-                tinyws_event.param.mouse.top_window_id = window_get_top(root_win_id, point_new(event.button.x, event.button.y));
+                tinyws_event.param.mouse.front_window_id = window_get_front(root_win_id, point_new(event.button.x, event.button.y));
                 break;
             }
         }
 
-
-        if (focused_win->client_id == -1) {
-            // server window
-
-        } else {
-            // TODO: send notification to (focused_win->parent->window_manager)
-            if (client_is_valid(focused_win->client_id)) {
-                client_event_push(focused_win->client_id, &tinyws_event);
+        {
+            // send to root's window manager
+            struct Window *root_win_ptr = window_get_own(root_win_id);
+            if (client_is_valid(root_win_ptr->window_manager) && focused_win->client_id != root_win_ptr->window_manager) {
+                client_event_push(root_win_ptr->window_manager, &tinyws_event);
             }
+            window_return_own(root_win_ptr);
+        }
+        // send to focused window
+        if (client_is_valid(focused_win->client_id)) {
+            client_event_push(focused_win->client_id, &tinyws_event);
         }
 
         window_return_own(focused_win);

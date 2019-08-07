@@ -127,6 +127,16 @@ void request_print(const struct Request *request) {
                     request->param.reparent.parent_window_id
                     );
             break;
+        case TINYWS_REQUEST_GET_TOPLEVEL_WINDOW:
+        {
+            printf("TINYWS_REQUEST_GET_TOPLEVEL_WINDOW(source=%d, target=%d, root=%d)\n",
+                    request->source,
+                    request->target_window_id,
+                    request->param.get_toplevel_window.root_win_id
+                    );
+            break;
+        }
+
         case TINYWS_REQUEST_APPLY_FOR_WM:
             printf("TINYWS_REQUEST_APPLY_FOR_WM(source=%d, target=%d)\n",
                     request->source,
@@ -220,6 +230,11 @@ size_t request_encode(const struct Request *request, uint8_t *out, size_t size) 
             WRITE_INT_LE(request->param.reparent.parent_window_id, &nxt);
             break;
         }
+        case TINYWS_REQUEST_GET_TOPLEVEL_WINDOW:
+        {
+            WRITE_INT_LE(request->param.get_toplevel_window.root_win_id, &nxt);
+            break;
+        }
         case TINYWS_REQUEST_SET_FOCUS:
         {
             break;
@@ -257,14 +272,12 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
     switch (ret.type) {
         case TINYWS_REQUEST_DRAW_RECT:
         {
-            ret.type = TINYWS_REQUEST_DRAW_RECT;
             rect_decode(&buf, &ret.param.draw_rect.rect);
             color_decode(&buf, &ret.param.draw_rect.color);
             break;
         }
         case TINYWS_REQUEST_DRAW_CIRCLE:
         {
-            ret.type = TINYWS_REQUEST_DRAW_CIRCLE;
             point_decode(&buf, &ret.param.draw_circle.center);
             READ_INT_LE(&buf, &ret.param.draw_circle.radius);
             READ_INT_LE(&buf, &ret.param.draw_circle.filled);
@@ -273,7 +286,6 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
         }
         case TINYWS_REQUEST_DRAW_LINE:
         {
-            ret.type = TINYWS_REQUEST_DRAW_LINE;
             point_decode(&buf, &ret.param.draw_line.p1);
             point_decode(&buf, &ret.param.draw_line.p2);
             color_decode(&buf, &ret.param.draw_line.color);
@@ -281,26 +293,22 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
         }
         case TINYWS_REQUEST_DRAW_PIXEL:
         {
-            ret.type = TINYWS_REQUEST_DRAW_PIXEL;
             point_decode(&buf, &ret.param.draw_pixel.p);
             color_decode(&buf, &ret.param.draw_pixel.color);
             break;
         }
         case TINYWS_REQUEST_CLEAR_WINDOW:
         {
-            ret.type = TINYWS_REQUEST_CLEAR_WINDOW;
             break;
         }
         case TINYWS_REQUEST_REFRESH:
         {
-            ret.type = TINYWS_REQUEST_REFRESH;
             break;
         }
 
         // window management
         case TINYWS_REQUEST_CREATE_WINDOW:
         {
-            ret.type = TINYWS_REQUEST_CREATE_WINDOW;
             rect_decode(&buf, &ret.param.create_window.rect);
             color_decode(&buf, &ret.param.create_window.bg_color);
             break;
@@ -311,13 +319,11 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
         }
         case TINYWS_REQUEST_SET_WINDOW_POS:
         {
-            ret.type = TINYWS_REQUEST_SET_WINDOW_POS;
             point_decode(&buf, &ret.param.set_window_pos.pos);
             break;
         }
         case TINYWS_REQUEST_SET_WINDOW_VISIBILITY:
         {
-            ret.type = TINYWS_REQUEST_SET_WINDOW_VISIBILITY;
             READ_INT_LE(&buf, &ret.param.set_window_visibility.visible);
             break;
         }
@@ -327,8 +333,12 @@ struct Request request_decode(const uint8_t *buf, size_t size) {
         }
         case TINYWS_REQUEST_WINDOW_REPARENT:
         {
-            ret.type = TINYWS_REQUEST_WINDOW_REPARENT;
             READ_INT_LE(&buf, &ret.param.reparent.parent_window_id);
+            break;
+        }
+        case TINYWS_REQUEST_GET_TOPLEVEL_WINDOW:
+        {
+            READ_INT_LE(&buf, &ret.param.get_toplevel_window.root_win_id);
             break;
         }
         case TINYWS_REQUEST_SET_FOCUS:

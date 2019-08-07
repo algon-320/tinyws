@@ -25,6 +25,7 @@ typedef enum {
     TINYWS_REQUEST_GET_WINDOW_INFO,
     TINYWS_REQUEST_MOVE_WINDOW_TOP,
     TINYWS_REQUEST_WINDOW_REPARENT,
+    TINYWS_REQUEST_GET_TOPLEVEL_WINDOW,
 
     TINYWS_REQUEST_APPLY_FOR_WM,
 
@@ -68,6 +69,9 @@ struct Request {
         struct {
             uint8_t visible;
         } set_window_visibility;
+        struct {
+            window_id_t root_win_id;
+        } get_toplevel_window;
         struct {
             window_id_t parent_window_id;
         } reparent;

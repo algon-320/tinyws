@@ -66,5 +66,5 @@ void window_set_wm(struct Window *win, client_id_t window_manager);
 
 bool window_check_inner_point(struct Window *win, Point p);
 
-window_id_t window_get_top(window_id_t win_id, Point p);
+window_id_t window_get_front(window_id_t win_id, Point p);
 #endif

@@ -80,6 +80,11 @@ int main(int argc, char *argv[]) {
     }
 
     window_id_t frame_window_id_map[1024];
+    bool is_frame_window[1024];
+    for (int i = 0; i < 1024; i++) {
+        frame_window_id_map[i] = -1;
+        is_frame_window[i] = false;
+    }
 
     int prev_pos_x = -1;
     int prev_pos_y = -1;
@@ -109,8 +114,8 @@ int main(int argc, char *argv[]) {
                         {
                             rect.x -= 1;
                             rect.y -= 20;
-                            rect.width += 2 + 5;
-                            rect.height += 20 + 1 + 5;
+                            rect.width += 2;
+                            rect.height += 20 + 1;
 
                             req_tmp.type = TINYWS_REQUEST_CREATE_WINDOW;
                             req_tmp.target_window_id = root_id;
@@ -123,19 +128,9 @@ int main(int argc, char *argv[]) {
                         }
 
                         frame_window_id_map[client_window_id] = frame_window_id;
+                        is_frame_window[frame_window_id] = true;
 
                         {
-                            // shadow
-                            rect.width -= 5;
-                            rect.height -= 5;
-                            req_tmp.type =TINYWS_REQUEST_DRAW_RECT;
-                            req_tmp.target_window_id = frame_window_id;
-                            req_tmp.param.draw_rect.rect = rect_new(5, 5, rect.width, rect.height);
-                            req_tmp.param.draw_rect.color = color_new(0x4D, 0x4D, 0x4D, 30);
-                            resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
-                            assert(resp_tmp.success);
-
                             // frame
                             req_tmp.type =TINYWS_REQUEST_DRAW_RECT;
                             req_tmp.target_window_id = frame_window_id;
@@ -145,49 +140,8 @@ int main(int argc, char *argv[]) {
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
                         }
-                        // left top
-                        {
-                            req_tmp.type =TINYWS_REQUEST_DRAW_PIXEL;
-                            req_tmp.target_window_id = frame_window_id;
-                            req_tmp.param.draw_pixel.p = point_new(0, 0);
-                            req_tmp.param.draw_pixel.color = color_new(0, 0, 0, 0);
-                            resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
-                            assert(resp_tmp.success);
-                        }
-                        // right top
-                        {
-                            req_tmp.type =TINYWS_REQUEST_DRAW_PIXEL;
-                            req_tmp.target_window_id = frame_window_id;
-                            req_tmp.param.draw_pixel.p = point_new(rect.width - 1, 0);
-                            req_tmp.param.draw_pixel.color = color_new(0, 0, 0, 0);
-                            resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
-                            assert(resp_tmp.success);
-                        }
-                        // left down
-                        {
-                            req_tmp.type =TINYWS_REQUEST_DRAW_PIXEL;
-                            req_tmp.target_window_id = frame_window_id;
-                            req_tmp.param.draw_pixel.p = point_new(0, rect.height - 1);
-                            req_tmp.param.draw_pixel.color = color_new(0, 0, 0, 0);
-                            resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
-                            assert(resp_tmp.success);
-                        }
-                        // left down
-                        {
-                            req_tmp.type =TINYWS_REQUEST_DRAW_PIXEL;
-                            req_tmp.target_window_id = frame_window_id;
-                            req_tmp.param.draw_pixel.p = point_new(rect.width - 1, rect.height - 1);
-                            req_tmp.param.draw_pixel.color = color_new(0, 0, 0, 0);
-                            resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
-                            assert(resp_tmp.success);
-                        }
 
                         printf("frame_window_id=%d\n", frame_window_id);
-
 
                         // reparent
                         {
@@ -230,33 +184,48 @@ int main(int argc, char *argv[]) {
                     }
                     case TINYWS_EVENT_MOUSE_DOWN:
                     {
+                        window_id_t front_window_id = resp.content.event_notify.event.param.mouse.front_window_id;
+                        if (front_window_id == root_id) {
+                            break;
+                        }
+
                         prev_pos_x = resp.content.event_notify.event.param.mouse.display_pos_x;
                         prev_pos_y = resp.content.event_notify.event.param.mouse.display_pos_y;
-                        clicked_win_id = resp.content.event_notify.event.param.mouse.top_window_id;
                         
                         struct Request req_tmp;
                         struct Response resp_tmp;
                         {
+                            // get frame window
+                            req_tmp.type = TINYWS_REQUEST_GET_TOPLEVEL_WINDOW;
+                            req_tmp.target_window_id = front_window_id;
+                            req_tmp.param.get_toplevel_window.root_win_id = root_id;
+                            resp_tmp = interact(&req_tmp, in, out);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
+                            assert(resp_tmp.success);
+                            clicked_win_id = resp_tmp.content.window_info.id;
+                            clicked_win_rect = resp_tmp.content.window_info.rect;
+                        }
+
+                        {
                             req_tmp.type = TINYWS_REQUEST_MOVE_WINDOW_TOP;
-                            req_tmp.target_window_id = resp.content.event_notify.event.param.mouse.top_window_id;
+                            req_tmp.target_window_id = clicked_win_id;
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
                         }
                         {
                             req_tmp.type = TINYWS_REQUEST_SET_FOCUS;
-                            req_tmp.target_window_id = resp.content.event_notify.event.param.mouse.top_window_id;
+                            req_tmp.target_window_id = front_window_id;
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
                         }
-                        {
-                            req_tmp.type = TINYWS_REQUEST_GET_WINDOW_INFO;
-                            req_tmp.target_window_id = clicked_win_id;
-                            resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
-                            assert(resp_tmp.success);
-                            clicked_win_rect = resp_tmp.content.window_info.rect;
+
+                        // not draggable
+                        if (!is_frame_window[front_window_id]) {
+                            clicked_win_id = -1;
+                            prev_pos_x = -1;
+                            prev_pos_y = -1;
                         }
                         break;
                     }

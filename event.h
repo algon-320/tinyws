@@ -40,7 +40,7 @@ struct Event {
             int32_t pos_y;
             int32_t display_pos_x;
             int32_t display_pos_y;
-            window_id_t top_window_id;
+            window_id_t front_window_id;
         } mouse;
         struct KeyBoard {
             enum KeyCode keycode;
