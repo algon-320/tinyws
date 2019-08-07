@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     window_id_t clicked_frame_win_id = -1;
     Rect clicked_win_rect;
 
-    Color frame_color = color_new(0x4D, 0x4D, 0x4D, 255);
+    const Color frame_color = color_new(0x4D, 0x4D, 0x4D, 255);
 
     while (1) {
         request.type = TINYWS_REQUEST_GET_EVENT;
@@ -130,29 +130,6 @@ int main(int argc, char *argv[]) {
                             assert(resp_tmp.success);
                             frame_window_id = resp_tmp.content.window_info.id;
                         }
-                        {   // close button
-                            req_tmp.type = TINYWS_REQUEST_CREATE_WINDOW;
-                            req_tmp.target_window_id = frame_window_id;
-                            req_tmp.param.create_window.rect = rect_new(2, 2, 16, 16);
-                            req_tmp.param.create_window.bg_color = frame_color;
-                            resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
-                            assert(resp_tmp.success);
-                            window_id_t close_button = resp_tmp.content.window_info.id;
-                            is_close_button[close_button] = true;
-                            
-                            {  // draw_close button sign
-                                req_tmp.type = TINYWS_REQUEST_DRAW_CIRCLE;
-                                req_tmp.target_window_id = close_button;
-                                req_tmp.param.draw_circle.center = point_new(8, 8);
-                                req_tmp.param.draw_circle.radius = 8;
-                                req_tmp.param.draw_circle.filled = 1;
-                                req_tmp.param.draw_circle.color = color_new(0xCE, 0x3F, 0x3F, 255);
-                                resp_tmp = interact(&req_tmp, in, out);
-                                assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
-                                assert(resp_tmp.success);
-                            }
-                        }
 
                         frame_window_id_map[client_window_id] = frame_window_id;
                         is_frame_window[frame_window_id] = true;
@@ -185,6 +162,37 @@ int main(int argc, char *argv[]) {
                             req_tmp.type = TINYWS_REQUEST_SET_WINDOW_POS;
                             req_tmp.target_window_id = client_window_id;
                             req_tmp.param.set_window_pos.pos = point_new(1, 20);
+                            resp_tmp = interact(&req_tmp, in, out);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
+                            assert(resp_tmp.success);
+                        }
+
+                        {   // close button
+                            req_tmp.type = TINYWS_REQUEST_CREATE_WINDOW;
+                            req_tmp.target_window_id = frame_window_id;
+                            req_tmp.param.create_window.rect = rect_new(2, 2, 16, 16);
+                            req_tmp.param.create_window.bg_color = frame_color;
+                            debugprint("frame_window_id=%d, bg_color=(%d, %d, %d, %d)\n", frame_window_id, frame_color.r, frame_color.g, frame_color.b, frame_color.a);
+                            resp_tmp = interact(&req_tmp, in, out);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
+                            assert(resp_tmp.success);
+                            window_id_t close_button = resp_tmp.content.window_info.id;
+                            is_close_button[close_button] = true;
+
+                            // clear window
+                            req_tmp.type = TINYWS_REQUEST_CLEAR_WINDOW;
+                            req_tmp.target_window_id = close_button;
+                            resp_tmp = interact(&req_tmp, in, out);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
+                            assert(resp_tmp.success);
+
+                            // draw_close button sign
+                            req_tmp.type = TINYWS_REQUEST_DRAW_CIRCLE;
+                            req_tmp.target_window_id = close_button;
+                            req_tmp.param.draw_circle.center = point_new(8, 8);
+                            req_tmp.param.draw_circle.radius = 8;
+                            req_tmp.param.draw_circle.filled = 1;
+                            req_tmp.param.draw_circle.color = color_new(0xCE, 0x3F, 0x3F, 255);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
@@ -311,8 +319,6 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
-
-        // usleep(5000);
     }
 
 CLOSE_SOCK:

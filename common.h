@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #define SDL_CALL_NONNEG(func_name, ...)\
         do {\

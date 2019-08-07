@@ -28,6 +28,9 @@
 #include "window.h"
 #include "client.h"
 
+// #define BACKGROUND_COLOR color_new(0x8D, 0x1D, 0x2D, 255)
+#define BACKGROUND_COLOR color_new(0x30, 0x3B, 0x61, 255)
+
 struct Display disp;
 window_id_t root_win_id;
 window_id_t overlay_win_id;
@@ -741,10 +744,24 @@ int initialize() {
     pthread_mutex_init(&mutex, &mutex_attr);
 
     // root window
-    root_win_id = window_new(WINDOW_ID_INVALID, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "root", color_new(0x8D, 0x1D, 0x2D, 255));
+    root_win_id = window_new(WINDOW_ID_INVALID,
+            &disp,
+            -1,
+            -1,
+            rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT),
+            "root",
+            BACKGROUND_COLOR
+            );
     debugprint("root_win ok\n");
     // overlay window
-    overlay_win_id = window_new(WINDOW_ID_INVALID, &disp, -1, -1, rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT), "cursor", color_new(0, 0, 0, 0));
+    overlay_win_id = window_new(WINDOW_ID_INVALID,
+            &disp,
+            -1,
+            -1,
+            rect_new(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT),
+            "cursor",
+            color_new(0, 0, 0, 0)
+            );
     debugprint("overlay_win ok\n");
 
     window_set_focus(root_win_id);
