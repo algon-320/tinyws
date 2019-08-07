@@ -84,6 +84,7 @@ int main(int argc, char *argv[]) {
     int prev_pos_x = -1;
     int prev_pos_y = -1;
     window_id_t clicked_win_id = -1;
+    Rect clicked_win_rect;
 
     while (1) {
         request.type = TINYWS_REQUEST_GET_EVENT;
@@ -249,6 +250,14 @@ int main(int argc, char *argv[]) {
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
                         }
+                        {
+                            req_tmp.type = TINYWS_REQUEST_GET_WINDOW_INFO;
+                            req_tmp.target_window_id = clicked_win_id;
+                            resp_tmp = interact(&req_tmp, in, out);
+                            assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
+                            assert(resp_tmp.success);
+                            clicked_win_rect = resp_tmp.content.window_info.rect;
+                        }
                         break;
                     }
                     case TINYWS_EVENT_MOUSE_UP:
@@ -262,19 +271,10 @@ int main(int argc, char *argv[]) {
                             // move window
                             struct Request req_tmp;
                             struct Response resp_tmp;
-                            Rect win_rect;
-                            {
-                                req_tmp.type = TINYWS_REQUEST_GET_WINDOW_INFO;
-                                req_tmp.target_window_id = clicked_win_id;
-                                resp_tmp = interact(&req_tmp, in, out);
-                                assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
-                                assert(resp_tmp.success);
-                                win_rect = resp_tmp.content.window_info.rect;
-                            }
                             {
                                 req_tmp.type = TINYWS_REQUEST_SET_WINDOW_POS;
                                 req_tmp.target_window_id = clicked_win_id;
-                                req_tmp.param.set_window_pos.pos = point_new(win_rect.x + dx, win_rect.y + dy);
+                                req_tmp.param.set_window_pos.pos = point_new(clicked_win_rect.x + dx, clicked_win_rect.y + dy);
                                 resp_tmp = interact(&req_tmp, in, out);
                                 assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                                 assert(resp_tmp.success);
@@ -285,6 +285,7 @@ int main(int argc, char *argv[]) {
                         }
                         prev_pos_x = -1;
                         prev_pos_y = -1;
+                        clicked_win_id = -1;
                         break;
                     }
                     case TINYWS_EVENT_MOUSE_MOVE:
