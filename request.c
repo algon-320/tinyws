@@ -395,7 +395,7 @@ struct Request requeset_new_draw_pixel(window_id_t target_window_id, Point p, Co
     req.target_window_id = target_window_id;
     req.type = TINYWS_REQUEST_DRAW_PIXEL;
     req.param.draw_pixel.p = p;
-    req.param.draw_line.color = color;
+    req.param.draw_pixel.color = color;
     return req;
 }
 struct Request requeset_new_clear_window(window_id_t target_window_id) {

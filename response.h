@@ -8,7 +8,7 @@
 #include "event.h"
 
 typedef enum {
-    TINYWS_RESPONSE_NOCONTENT,
+    TINYWS_RESPONSE_NOCONTENT = 0,
     TINYWS_RESPONSE_WINDOW_INFO,
     TINYWS_RESPONSE_EVENT_NOTIFY,
 } ResponseType;

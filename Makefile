@@ -1,8 +1,8 @@
 SERVER_REQUIRE_OBJS = lib.o display.o draw.o request.o response.o event.o tcp.o basic_structures.o window.o client.o
 CC = gcc
 # CFLAGS = -std=gnu99 -Wall -Wextra -g -fsanitize=address -fsanitize=leak `sdl2-config --cflags --libs`
-CFLAGS = -std=gnu99 -Wall -Wextra -g -fsanitize=thread `sdl2-config --cflags --libs`
-# CFLAGS = -std=gnu99 -Wall -Wextra -O2 -DNDEBUG `sdl2-config --cflags --libs`
+# CFLAGS = -std=gnu99 -Wall -Wextra -g -fsanitize=thread `sdl2-config --cflags --libs`
+CFLAGS = -std=gnu99 -Wall -Wextra -O2 -DNDEBUG `sdl2-config --cflags --libs`
 
 all: server.out client_example.out client_window_manager.out
 clean:

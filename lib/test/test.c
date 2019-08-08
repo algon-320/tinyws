@@ -267,35 +267,6 @@ void test_stack() {
     }
 }
 
-#include "../linked_list.h"
-void test_linked_list() {
-    int test_case_passed = 1;
-    printf("test_linked_list\n");
-    {
-        LinkedList list;
-        int data = 12345;
-        linked_list_init(&list, NULL, NULL, &data, sizeof(int));
-        ASSERT_EQ_INT(*(int *)list.data, 12345);
-
-        LinkedList list2;
-        data = 67890;
-        linked_list_init(&list2, &list, NULL, &data, sizeof(int));
-        ASSERT_EQ_INT(*(int *)list2.data, 67890);
-        ASSERT_EQ_INT(*(int *)list2.prev->data, 12345);
-        ASSERT_EQ_INT(*(int *)list.next->data, 67890);
-        ASSERT_EQ_PTR(list.next, &list2);
-        ASSERT_EQ_PTR(list2.prev, &list);
-
-        linked_list_erase(&list2);
-        ASSERT_EQ_PTR(list.next, NULL);
-    }
-    if (test_case_passed) {
-        printf("\tok\n");
-    } else {
-        printf("\tfailed\n");
-    }
-}
-
 // void test_() {
 //     int test_case_passed = 1;
 //     printf("test_\n");
@@ -315,7 +286,6 @@ int main() {
     test_deque();
     test_queue();
     test_stack();
-    test_linked_list();
 
     if (all_passed) {
         printf("all passed!\n");

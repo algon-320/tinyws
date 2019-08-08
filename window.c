@@ -296,6 +296,7 @@ void window_return_own(struct Window *win) {
 
 // for debug
 void window_print_all() {
+#ifndef NDEBUG
     for (size_t i = 0; i < deque_size(&windows_ptr); i++) {
         struct Window *win = DEQUE_TAKE(deque_at(&windows_ptr, i), struct Window *);
         debugprint("id=%lu\n", i);
@@ -317,6 +318,7 @@ void window_print_all() {
             debugprint("\tnext=NULL\n");
         }
     }
+#endif
 }
 
 void window_move_top(window_id_t win_id) {

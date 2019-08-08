@@ -22,11 +22,8 @@ struct Response interact(const struct Request *request, FILE *in, FILE *out) {
         fprintf(stderr, "buffer too small\n");
         exit(1);
     }
-    printf("message: [");
-    for (size_t i = 0; i < bytes; i++) {
-        printf("%d ", (uint8_t)message[i]);
-    }
-    printf("]\n");
+    
+    request_print(request);
 
     // send request
     if (fwrite(message, sizeof(uint8_t), BUFFERSIZE, out) == 0) {
@@ -41,7 +38,9 @@ struct Response interact(const struct Request *request, FILE *in, FILE *out) {
         exit(1);
     }
 
-    return response_decode(response_buf, BUFFERSIZE);
+    struct Response resp = response_decode(response_buf, BUFFERSIZE);
+    response_print(&resp);
+    return resp;
 }
 
 int main(int argc, char *argv[]) {
@@ -73,7 +72,6 @@ int main(int argc, char *argv[]) {
     request.type = TINYWS_REQUEST_APPLY_FOR_WM;
     request.target_window_id = root_id;
     struct Response resp = interact(&request, in, out);
-    response_print(&resp);
     if (resp.success == 0) {
         fprintf(stderr, "failed to become window manager. other window manager has already existed.\n");
         exit(1);
@@ -100,7 +98,7 @@ int main(int argc, char *argv[]) {
         request.type = TINYWS_REQUEST_GET_EVENT;
 
         struct Response resp = interact(&request, in, out);
-        response_print(&resp);
+
         switch (resp.type) {
             case TINYWS_RESPONSE_EVENT_NOTIFY:
             {

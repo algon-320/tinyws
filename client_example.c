@@ -162,11 +162,11 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "buffer too small\n");
             return 1;
         }
-        printf("request: [");
-        for (size_t i = 0; i < bytes; i++) {
-            printf("%d ", (uint8_t)request_buf[i]);
-        }
-        printf("]\n");
+        // printf("request: [");
+        // for (size_t i = 0; i < 100; i++) {
+        //     printf("%d ", (uint8_t)request_buf[i]);
+        // }
+        // printf("]\n");
 
         // send request
         if (fwrite(request_buf, sizeof(uint8_t), BUFFERSIZE, out) == 0) {
@@ -184,11 +184,11 @@ int main(int argc, char *argv[]) {
         struct Response resp = response_decode(response_buf, BUFFERSIZE);
         response_print(&resp);
 
-        printf("response: [");
-        for (size_t i = 0; i < bytes; i++) {
-            printf("%d ", (uint8_t)response_buf[i]);
-        }
-        printf("]\n");
+        // printf("response: [");
+        // for (size_t i = 0; i < 100; i++) {
+        //     printf("%d ", (uint8_t)response_buf[i]);
+        // }
+        // printf("]\n");
     }
 
 CLOSE_FP:
