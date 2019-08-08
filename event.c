@@ -154,3 +154,69 @@ struct Event event_decode(const uint8_t **in) {
     }
     return event;
 }
+
+struct Event event_new_mouse_down(window_id_t window_id, enum MouseButton button, int32_t pos_x, int32_t pos_y, int32_t display_pos_x, int32_t display_pos_y, window_id_t front_window_id) {
+    struct Event event;
+    event.type = TINYWS_EVENT_MOUSE_DOWN;
+    event.window_id = window_id;
+    event.param.mouse.button = button;
+    event.param.mouse.pos_x = pos_x;
+    event.param.mouse.pos_y = pos_y;
+    event.param.mouse.display_pos_x = display_pos_x;
+    event.param.mouse.display_pos_y = display_pos_y;
+    event.param.mouse.front_window_id = front_window_id;
+    return event;
+}
+struct Event event_new_mouse_up(window_id_t window_id, enum MouseButton button, int32_t pos_x, int32_t pos_y, int32_t display_pos_x, int32_t display_pos_y, window_id_t front_window_id) {
+    struct Event event;
+    event.type = TINYWS_EVENT_MOUSE_UP;
+    event.window_id = window_id;
+    event.param.mouse.button = button;
+    event.param.mouse.pos_x = pos_x;
+    event.param.mouse.pos_y = pos_y;
+    event.param.mouse.display_pos_x = display_pos_x;
+    event.param.mouse.display_pos_y = display_pos_y;
+    event.param.mouse.front_window_id = front_window_id;
+    return event;
+}
+struct Event event_new_mouse_move(window_id_t window_id, int32_t pos_x, int32_t pos_y, int32_t display_pos_x, int32_t display_pos_y, window_id_t front_window_id) {
+    struct Event event;
+    event.type = TINYWS_EVENT_MOUSE_MOVE;
+    event.window_id = window_id;
+    event.param.mouse.pos_x = pos_x;
+    event.param.mouse.pos_y = pos_y;
+    event.param.mouse.display_pos_x = display_pos_x;
+    event.param.mouse.display_pos_y = display_pos_y;
+    event.param.mouse.front_window_id = front_window_id;
+    return event;
+}
+struct Event event_new_key_down(window_id_t window_id, enum KeyCode keycode) {
+    struct Event event;
+    event.type = TINYWS_EVENT_KEY_DOWN;
+    event.window_id = window_id;
+    event.param.keyboard.keycode = keycode;
+    return event;
+}
+struct Event event_new_key_up(window_id_t window_id, enum KeyCode keycode) {
+    struct Event event;
+    event.type = TINYWS_EVENT_KEY_UP;
+    event.window_id = window_id;
+    event.param.keyboard.keycode = keycode;
+    return event;
+}
+struct Event event_new_close_child_window(window_id_t window_id, window_id_t child_window_id) {
+    struct Event event;
+    event.type = TINYWS_EVENT_CLOSE_CHILD_WINDOW;
+    event.window_id = window_id;
+    event.param.close_child_window.child_window_id = child_window_id;
+    return event;
+}
+struct Event event_new_wm_event_notify_create_window(window_id_t window_id, window_id_t client_window_id, Rect rect) {
+    assert(false);
+    struct Event event;
+    event.type = TINYWS_WM_EVENT_NOTIFY_CREATE_WINDOW;
+    event.window_id = window_id;
+    event.param.wm_event_create_window.client_window_id = client_window_id;
+    event.param.wm_event_create_window.rect = rect;
+    return event;
+}

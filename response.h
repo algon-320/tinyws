@@ -16,7 +16,6 @@ typedef enum {
 struct Response {
     ResponseType type;
     uint8_t success;
-    client_id_t dest;
     union {
         struct {
             window_id_t id;
@@ -32,5 +31,9 @@ void response_print(const struct Response *resp);
 
 size_t response_encode(const struct Response *resp, uint8_t *out, size_t size);
 struct Response response_decode(const uint8_t *buf, size_t size);
+
+struct Response response_new_nocontent(uint8_t success);
+struct Response response_new_window_info(uint8_t success, window_id_t id, Rect rect);
+struct Response response_new_event_notify(uint8_t success, struct Event event);
 
 #endif

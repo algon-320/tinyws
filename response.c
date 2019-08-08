@@ -88,3 +88,25 @@ struct Response response_decode(const uint8_t *buf, size_t size) {
     }
     return ret;
 }
+
+struct Response response_new_nocontent(uint8_t success) {
+    struct Response resp;
+    resp.type = TINYWS_RESPONSE_NOCONTENT;
+    resp.success = success;
+    return resp;
+}
+struct Response response_new_window_info(uint8_t success, window_id_t id, Rect rect) {
+    struct Response resp;
+    resp.type = TINYWS_RESPONSE_WINDOW_INFO;
+    resp.success = success;
+    resp.content.window_info.id = id;
+    resp.content.window_info.rect = rect;
+    return resp;
+}
+struct Response response_new_event_notify(uint8_t success, struct Event event) {
+    struct Response resp;
+    resp.type = TINYWS_RESPONSE_EVENT_NOTIFY;
+    resp.success = success;
+    resp.content.event_notify.event = event;
+    return resp;
+}

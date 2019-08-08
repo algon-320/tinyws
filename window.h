@@ -12,8 +12,10 @@
 #include <pthread.h>
 
 struct Window {
-    struct Window *parent;
     window_id_t id;
+    struct Window *parent;
+    LinkedList child;  // <struct Window *>
+    LinkedList next;   // <struct Window *>
     client_id_t client_id;
     client_id_t window_manager;
     Point pos;
@@ -21,8 +23,6 @@ struct Window {
     uint8_t visible;
     char title[256];
     Color background_color;
-    LinkedList child;  // <struct Window *>
-    LinkedList next;   // <struct Window *>
     SDL_Texture *buffer;
     struct Display *disp;
 };

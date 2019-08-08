@@ -60,4 +60,12 @@ void event_print(const struct Event *event);
 size_t event_encode(const struct Event *event, uint8_t **out);
 struct Event event_decode(const uint8_t **in);
 
+struct Event event_new_mouse_down(window_id_t window_id, enum MouseButton button, int32_t pos_x, int32_t pos_y, int32_t display_pos_x, int32_t display_pos_y, window_id_t front_window_id);
+struct Event event_new_mouse_up(window_id_t window_id, enum MouseButton button, int32_t pos_x, int32_t pos_y, int32_t display_pos_x, int32_t display_pos_y, window_id_t front_window_id);
+struct Event event_new_mouse_move(window_id_t window_id, int32_t pos_x, int32_t pos_y, int32_t display_pos_x, int32_t display_pos_y, window_id_t front_window_id);
+struct Event event_new_key_down(window_id_t window_id, enum KeyCode keycode);
+struct Event event_new_key_up(window_id_t window_id, enum KeyCode keycode);
+struct Event event_new_close_child_window(window_id_t window_id, window_id_t child_window_id);
+struct Event event_new_wm_event_notify_create_window(window_id_t window_id, window_id_t client_window_id, Rect rect);
+
 #endif

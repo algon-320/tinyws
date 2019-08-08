@@ -38,10 +38,10 @@ typedef enum {
 struct Request {
     RequestType type;
     window_id_t target_window_id;
-    client_id_t source;
     union {
         struct {
             Rect rect;
+            uint8_t filled;
             Color color;
         } draw_rect;
         struct {
@@ -82,5 +82,23 @@ void request_print(const struct Request *request);
 
 size_t request_encode(const struct Request *request, uint8_t *out, size_t size);
 struct Request request_decode(const uint8_t *buf, size_t size);
+
+struct Request requeset_new_draw_rect(window_id_t target_window_id, Rect rect, uint8_t filled, Color color);
+struct Request requeset_new_draw_circle(window_id_t target_window_id, Point center, int32_t radius, uint8_t filled, Color color);
+struct Request requeset_new_draw_line(window_id_t target_window_id, Point p1, Point p2, Color color);
+struct Request requeset_new_draw_pixel(window_id_t target_window_id, Point p, Color color);
+struct Request requeset_new_clear_window(window_id_t target_window_id);
+struct Request requeset_new_refresh();
+struct Request requeset_new_create_window(window_id_t parent_window_id, Rect rect, Color bg_color);
+struct Request requeset_new_close_window(window_id_t target_window_id);
+struct Request requeset_new_set_window_pos(window_id_t target_window_id, Point pos);
+struct Request requeset_new_set_window_visibility(window_id_t target_window_id, uint8_t visible);
+struct Request requeset_new_set_focus(window_id_t target_window_id);
+struct Request requeset_new_get_window_info(window_id_t target_window_id);
+struct Request requeset_new_move_window_top(window_id_t target_window_id);
+struct Request requeset_new_window_reparent(window_id_t target_window_id, window_id_t parent_window_id);
+struct Request requeset_new_get_toplevel_window(window_id_t target_window_id, window_id_t root_win_id);
+struct Request requeset_new_apply_for_wm(window_id_t target_window_id);
+struct Request requeset_new_get_event(window_id_t target_window_id);
 
 #endif

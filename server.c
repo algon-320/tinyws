@@ -85,7 +85,6 @@ int receive_request(uint8_t *line, size_t size, FILE *in) {
 void refresh_screen() {
     struct Request req;
     req.type = TINYWS_REQUEST_REFRESH;
-    req.source = -1;
     req.target_window_id = -1;
     request_put(&req);
 }
@@ -130,12 +129,9 @@ int interaction_thread(struct interaction_thread_arg *arg) {
         fflush(stdout);
 
         struct Request request = request_decode(buf, BUFFSIZE);
-        request.source = cleint_id;
         request_print(&request);
 
-
         struct Response resp;
-        resp.dest = cleint_id;
 
         switch (request.type) {
             // if it is a window management request, process here
@@ -143,8 +139,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             {
                 window_id_t parent_id = request.target_window_id;
                 if (!window_is_valid(parent_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
@@ -156,10 +151,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                         request.param.create_window.bg_color
                         );
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_WINDOW_INFO;
-                resp.content.window_info.id = win_id;
-                resp.content.window_info.rect = request.param.create_window.rect;
+                resp = response_new_window_info(1, win_id, request.param.create_window.rect);
 
                 // top level window only
                 if (parent_id == 0) {
@@ -171,23 +163,20 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             {
                 window_id_t win_id = request.target_window_id;
                 if (!window_is_valid(win_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
                 window_close(win_id);
                 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(1);
                 break;
             }
             case TINYWS_REQUEST_SET_WINDOW_POS:
             {
                 window_id_t win_id = request.target_window_id;
                 if (!window_is_valid(win_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
                 
@@ -197,16 +186,14 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
                 window_return_own(win);
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(1);
                 break;
             }
             case TINYWS_REQUEST_SET_WINDOW_VISIBILITY:
             {
                 window_id_t win_id = request.target_window_id;
                 if (!window_is_valid(win_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
                 
@@ -216,25 +203,21 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
                 window_return_own(win);
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(1);
                 break;
             }
             case TINYWS_REQUEST_GET_WINDOW_INFO:
             {
                 window_id_t win_id = request.target_window_id;
                 if (!window_is_valid(win_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_WINDOW_INFO;
                 struct Window *win = window_get_own(win_id);
                 {
-                    resp.content.window_info.id = win->id;
-                    resp.content.window_info.rect = rect_new(win->pos.x, win->pos.y, win->size.width, win->size.height);
+                    Rect rect = rect_new(win->pos.x, win->pos.y, win->size.width, win->size.height);
+                    resp = response_new_window_info(1, win->id, rect);
                 }
                 window_return_own(win);
                 break;
@@ -244,15 +227,13 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 window_id_t win_id = request.target_window_id;
                 window_id_t par_id = request.param.reparent.parent_window_id;
                 if (!window_is_valid(win_id) || !window_is_valid(par_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
                 window_reparent(win_id, par_id);
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(1);
                 break;
             }
             case TINYWS_REQUEST_GET_TOPLEVEL_WINDOW:
@@ -260,8 +241,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 window_id_t win_id = request.target_window_id;
                 window_id_t root_id = request.param.get_toplevel_window.root_win_id;
                 if (!window_is_valid(win_id) || !window_is_valid(root_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
@@ -275,18 +255,10 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                         tmp = tmp->parent;
                     }
                     if (tmp->parent) {
-                        resp.success = 1;
-                        resp.type = TINYWS_RESPONSE_WINDOW_INFO;
-                        resp.content.window_info.id = tmp->id;
-                        resp.content.window_info.rect = rect_new(
-                                tmp->pos.x,
-                                tmp->pos.y,
-                                tmp->size.width,
-                                tmp->size.height
-                                );
+                        Rect rect = rect_new(tmp->pos.x, tmp->pos.y, tmp->size.width, tmp->size.height);
+                        resp = response_new_window_info(1, tmp->id, rect);
                     } else {
-                        resp.success = 0;
-                        resp.type = TINYWS_RESPONSE_NOCONTENT;
+                        resp = response_new_nocontent(0);
                     }
                 }
                 window_return_own(win);
@@ -296,30 +268,26 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             {
                 window_id_t win_id = request.target_window_id;
                 if (!window_is_valid(win_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
                 window_set_focus(win_id);
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(1);
                 break;
             }
             case TINYWS_REQUEST_MOVE_WINDOW_TOP:
             {
                 window_id_t win_id = request.target_window_id;
                 if (!window_is_valid(win_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
                 window_move_top(win_id);
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(1);
                 break;
             }
 
@@ -327,16 +295,14 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             {
                 window_id_t win_id = request.target_window_id;
                 if (!window_is_valid(win_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
                 struct Window *win = window_get_own(win_id);
                 {
                     if (client_is_valid(win->window_manager)) {
-                        resp.success = 0;
-                        resp.type = TINYWS_RESPONSE_NOCONTENT;
+                        resp = response_new_nocontent(0);
                         window_return_own(win);
                         break;
                     }
@@ -344,8 +310,7 @@ int interaction_thread(struct interaction_thread_arg *arg) {
                 }
                 window_return_own(win);
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(1);
                 break;
             }
 
@@ -353,14 +318,11 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             {
                 struct Event event;
                 if (!client_event_pop(cleint_id, &event)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_EVENT_NOTIFY;
-                resp.content.event_notify.event = event;
+                resp = response_new_event_notify(1, event);
                 break;
             }
 
@@ -373,26 +335,22 @@ int interaction_thread(struct interaction_thread_arg *arg) {
             {
                 window_id_t win_id = request.target_window_id;
                 if (!window_is_valid(win_id)) {
-                    resp.success = 0;
-                    resp.type = TINYWS_RESPONSE_NOCONTENT;
+                    resp = response_new_nocontent(0);
                     break;
                 }
                 
                 request_put(&request);
 
-                resp.success = 1;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(1);
                 break;
             }
             default:
             {
-                resp.success = 0;
-                resp.type = TINYWS_RESPONSE_NOCONTENT;
+                resp = response_new_nocontent(0);
                 break;
             }
         }
 
-        // 再描画
         refresh_screen();
 
         size_t bytes = response_encode(&resp, response_buf, BUFFSIZE);
@@ -463,27 +421,28 @@ int event_thread() {
             }
             case SDL_KEYDOWN:
             {
-                tinyws_event.type = TINYWS_EVENT_KEY_DOWN;
+                enum KeyCode keycode;
                 switch (event.key.keysym.sym) {
                     case SDLK_UP:
-                        tinyws_event.param.keyboard.keycode = TINYWS_KEYCODE_ARROW_UP;
+                        keycode = TINYWS_KEYCODE_ARROW_UP;
                         break;
                     case SDLK_DOWN:
-                        tinyws_event.param.keyboard.keycode = TINYWS_KEYCODE_ARROW_DOWN;
+                        keycode = TINYWS_KEYCODE_ARROW_DOWN;
                         break;
                     case SDLK_LEFT:
-                        tinyws_event.param.keyboard.keycode = TINYWS_KEYCODE_ARROW_LEFT;
+                        keycode = TINYWS_KEYCODE_ARROW_LEFT;
                         break;
                     case SDLK_RIGHT:
-                        tinyws_event.param.keyboard.keycode = TINYWS_KEYCODE_ARROW_RIGHT;
+                        keycode = TINYWS_KEYCODE_ARROW_RIGHT;
                         break;
                     case SDLK_SPACE:
-                        tinyws_event.param.keyboard.keycode = TINYWS_KEYCODE_SPACE;
+                        keycode = TINYWS_KEYCODE_SPACE;
                         break;
                     case SDLK_RETURN:
-                        tinyws_event.param.keyboard.keycode = TINYWS_KEYCODE_ENTER;
+                        keycode = TINYWS_KEYCODE_ENTER;
                         break;
                 }
+                tinyws_event = event_new_key_down(focused_win_id, keycode);
                 break;
             }
 
@@ -491,49 +450,60 @@ int event_thread() {
             {
                 int mouse_x = event.button.x;
                 int mouse_y = event.button.y;
-                tinyws_event.type = TINYWS_EVENT_MOUSE_DOWN;
+                enum MouseButton button;
                 switch (event.button.button) {
                     case SDL_BUTTON_LEFT:
-                        tinyws_event.param.mouse.button = TINYWS_MOUSE_LEFT_BUTTON;
+                        button = TINYWS_MOUSE_LEFT_BUTTON;
                         break;
                     case SDL_BUTTON_RIGHT:
-                        tinyws_event.param.mouse.button = TINYWS_MOUSE_RIGHT_BUTTON;
+                        button = TINYWS_MOUSE_RIGHT_BUTTON;
                         break;
                 }
-                tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
-                tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
-                tinyws_event.param.mouse.display_pos_x = event.button.x;
-                tinyws_event.param.mouse.display_pos_y = event.button.y;
                 window_id_t front_win_id = window_get_front(root_win_id, point_new(mouse_x, mouse_y));
-                tinyws_event.param.mouse.front_window_id = front_win_id;
+                window_get_front(root_win_id, point_new(event.button.x, event.button.y));
+                tinyws_event = event_new_mouse_down(focused_win_id, button,
+                        event.button.x - focused_win->pos.x,
+                        event.button.y - focused_win->pos.y,
+                        event.button.x,
+                        event.button.y,
+                        front_win_id);
                 break;
             }
             case SDL_MOUSEBUTTONUP:
             {
-                tinyws_event.type = TINYWS_EVENT_MOUSE_UP;
+                int mouse_x = event.button.x;
+                int mouse_y = event.button.y;
+                enum MouseButton button;
                 switch (event.button.button) {
                     case SDL_BUTTON_LEFT:
-                        tinyws_event.param.mouse.button = TINYWS_MOUSE_LEFT_BUTTON;
+                        button = TINYWS_MOUSE_LEFT_BUTTON;
                         break;
                     case SDL_BUTTON_RIGHT:
-                        tinyws_event.param.mouse.button = TINYWS_MOUSE_RIGHT_BUTTON;
+                        button = TINYWS_MOUSE_RIGHT_BUTTON;
                         break;
                 }
-                tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
-                tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
-                tinyws_event.param.mouse.display_pos_x = event.button.x;
-                tinyws_event.param.mouse.display_pos_y = event.button.y;
-                tinyws_event.param.mouse.front_window_id = window_get_front(root_win_id, point_new(event.button.x, event.button.y));
+                window_id_t front_win_id = window_get_front(root_win_id, point_new(mouse_x, mouse_y));
+                window_get_front(root_win_id, point_new(event.button.x, event.button.y));
+                tinyws_event = event_new_mouse_up(focused_win_id, button,
+                        event.button.x - focused_win->pos.x,
+                        event.button.y - focused_win->pos.y,
+                        event.button.x,
+                        event.button.y,
+                        front_win_id);
                 break;
             }
             case SDL_MOUSEMOTION:
             {
-                tinyws_event.type = TINYWS_EVENT_MOUSE_MOVE;
-                tinyws_event.param.mouse.pos_x = event.button.x - focused_win->pos.x;
-                tinyws_event.param.mouse.pos_y = event.button.y - focused_win->pos.y;
-                tinyws_event.param.mouse.display_pos_x = event.button.x;
-                tinyws_event.param.mouse.display_pos_y = event.button.y;
-                tinyws_event.param.mouse.front_window_id = window_get_front(root_win_id, point_new(event.button.x, event.button.y));
+                int mouse_x = event.button.x;
+                int mouse_y = event.button.y;
+                window_id_t front_win_id = window_get_front(root_win_id, point_new(mouse_x, mouse_y));
+                window_get_front(root_win_id, point_new(event.button.x, event.button.y));
+                tinyws_event = event_new_mouse_move(focused_win_id,
+                        event.button.x - focused_win->pos.x,
+                        event.button.y - focused_win->pos.y,
+                        event.button.x,
+                        event.button.y,
+                        front_win_id);
                 break;
             }
         }
@@ -555,8 +525,7 @@ int event_thread() {
 
         debugprint("event push: id=%d ", focused_win->id);
         event_print(&tinyws_event);
-        
-        // 再描画
+
         refresh_screen();
 
         // ignore mouse move event

@@ -94,6 +94,7 @@ int main(int argc, char *argv[]) {
     Rect clicked_win_rect;
 
     const Color frame_color = color_new(0x4D, 0x4D, 0x4D, 255);
+    const Color close_button_color = color_new(0xCE, 0x3F, 0x3F, 255);
 
     while (1) {
         request.type = TINYWS_REQUEST_GET_EVENT;
@@ -121,10 +122,7 @@ int main(int argc, char *argv[]) {
                             rect.width += 2;
                             rect.height += 20 + 1;
 
-                            req_tmp.type = TINYWS_REQUEST_CREATE_WINDOW;
-                            req_tmp.target_window_id = root_id;
-                            req_tmp.param.create_window.rect = rect;
-                            req_tmp.param.create_window.bg_color = frame_color;
+                            req_tmp = requeset_new_create_window(root_id, rect, frame_color);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
                             assert(resp_tmp.success);
@@ -134,24 +132,11 @@ int main(int argc, char *argv[]) {
                         frame_window_id_map[client_window_id] = frame_window_id;
                         is_frame_window[frame_window_id] = true;
 
-                        {
-                            // frame
-                            req_tmp.type =TINYWS_REQUEST_DRAW_RECT;
-                            req_tmp.target_window_id = frame_window_id;
-                            req_tmp.param.draw_rect.rect = rect_new(0, 0, rect.width, rect.height);
-                            req_tmp.param.draw_rect.color = color_new(0x4D, 0x4D, 0x4D, 255);
-                            resp_tmp = interact(&req_tmp, in, out);
-                            assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
-                            assert(resp_tmp.success);
-                        }
-
                         printf("frame_window_id=%d\n", frame_window_id);
 
                         // reparent
                         {
-                            req_tmp.type = TINYWS_REQUEST_WINDOW_REPARENT;
-                            req_tmp.target_window_id = client_window_id;
-                            req_tmp.param.reparent.parent_window_id = frame_window_id;
+                            req_tmp = requeset_new_window_reparent(client_window_id, frame_window_id);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
@@ -159,19 +144,15 @@ int main(int argc, char *argv[]) {
 
                         // move
                         {
-                            req_tmp.type = TINYWS_REQUEST_SET_WINDOW_POS;
-                            req_tmp.target_window_id = client_window_id;
-                            req_tmp.param.set_window_pos.pos = point_new(1, 20);
+                            req_tmp = requeset_new_set_window_pos(client_window_id, point_new(1, 20));
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
                         }
 
-                        {   // close button
-                            req_tmp.type = TINYWS_REQUEST_CREATE_WINDOW;
-                            req_tmp.target_window_id = frame_window_id;
-                            req_tmp.param.create_window.rect = rect_new(2, 2, 16, 16);
-                            req_tmp.param.create_window.bg_color = frame_color;
+                        {
+                            // close button
+                            req_tmp = requeset_new_create_window(frame_window_id, rect_new(2, 2, 16, 16), frame_color);
                             debugprint("frame_window_id=%d, bg_color=(%d, %d, %d, %d)\n", frame_window_id, frame_color.r, frame_color.g, frame_color.b, frame_color.a);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
@@ -180,19 +161,13 @@ int main(int argc, char *argv[]) {
                             is_close_button[close_button] = true;
 
                             // clear window
-                            req_tmp.type = TINYWS_REQUEST_CLEAR_WINDOW;
-                            req_tmp.target_window_id = close_button;
+                            req_tmp = requeset_new_clear_window(close_button);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
 
                             // draw_close button sign
-                            req_tmp.type = TINYWS_REQUEST_DRAW_CIRCLE;
-                            req_tmp.target_window_id = close_button;
-                            req_tmp.param.draw_circle.center = point_new(8, 8);
-                            req_tmp.param.draw_circle.radius = 8;
-                            req_tmp.param.draw_circle.filled = 1;
-                            req_tmp.param.draw_circle.color = color_new(0xCE, 0x3F, 0x3F, 255);
+                            req_tmp = requeset_new_draw_circle(close_button, point_new(8, 8), 8, 1, close_button_color);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
@@ -213,8 +188,7 @@ int main(int argc, char *argv[]) {
                         struct Response resp_tmp;
 
                         {
-                            req_tmp.type = TINYWS_REQUEST_CLOSE_WINDOW;
-                            req_tmp.target_window_id = frame_window_id;
+                            req_tmp = requeset_new_close_window(frame_window_id);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
@@ -236,9 +210,7 @@ int main(int argc, char *argv[]) {
                         
                         {
                             // get frame window
-                            req_tmp.type = TINYWS_REQUEST_GET_TOPLEVEL_WINDOW;
-                            req_tmp.target_window_id = front_window_id;
-                            req_tmp.param.get_toplevel_window.root_win_id = root_id;
+                            req_tmp = requeset_new_get_toplevel_window(front_window_id, root_id);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_WINDOW_INFO);
                             assert(resp_tmp.success);
@@ -248,8 +220,7 @@ int main(int argc, char *argv[]) {
 
                         // close window
                         if (is_close_button[front_window_id]) {
-                            req_tmp.type = TINYWS_REQUEST_CLOSE_WINDOW;
-                            req_tmp.target_window_id = clicked_frame_win_id;
+                            req_tmp = requeset_new_close_window(clicked_frame_win_id);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
@@ -258,15 +229,13 @@ int main(int argc, char *argv[]) {
                         }
 
                         {
-                            req_tmp.type = TINYWS_REQUEST_MOVE_WINDOW_TOP;
-                            req_tmp.target_window_id = clicked_frame_win_id;
+                            req_tmp = requeset_new_move_window_top(clicked_frame_win_id);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
                         }
                         {
-                            req_tmp.type = TINYWS_REQUEST_SET_FOCUS;
-                            req_tmp.target_window_id = front_window_id;
+                            req_tmp = requeset_new_set_focus(front_window_id);
                             resp_tmp = interact(&req_tmp, in, out);
                             assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                             assert(resp_tmp.success);
@@ -295,9 +264,7 @@ int main(int argc, char *argv[]) {
                             struct Request req_tmp;
                             struct Response resp_tmp;
                             {
-                                req_tmp.type = TINYWS_REQUEST_SET_WINDOW_POS;
-                                req_tmp.target_window_id = clicked_frame_win_id;
-                                req_tmp.param.set_window_pos.pos = point_new(clicked_win_rect.x + dx, clicked_win_rect.y + dy);
+                                req_tmp = requeset_new_set_window_pos(clicked_frame_win_id, point_new(clicked_win_rect.x + dx, clicked_win_rect.y + dy));
                                 resp_tmp = interact(&req_tmp, in, out);
                                 assert(resp_tmp.type == TINYWS_RESPONSE_NOCONTENT);
                                 assert(resp_tmp.success);
@@ -315,7 +282,15 @@ int main(int argc, char *argv[]) {
                     {
                         break;
                     }
+                    default:
+                    {
+                        break;
+                    }
                 }
+                break;
+            }
+            default:
+            {
                 break;
             }
         }
